@@ -1,0 +1,31 @@
+name: Web CI
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["web/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: echo "TODO - cd web && npm install"
+
+      - name: Lint code
+        run: echo "TODO - npm run lint"
+
+      - name: Build app
+        run: echo "TODO - npm run build"
+
+      - name: Deploy
+        run: echo "TODO - deploy to Vercel or Netlify"
