@@ -1,0 +1,31 @@
+name: Data & ML CI
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["data/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: echo "TODO - pip install -r data/requirements.txt"
+
+      - name: Validate data processing scripts
+        run: echo "TODO - python data/process.py --dry-run"
+
+      - name: Run ML model tests
+        run: echo "TODO - pytest data/tests/"
+
+      - name: Check data schema
+        run: echo "TODO - python data/validate_schema.py"
