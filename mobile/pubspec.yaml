@@ -1,0 +1,47 @@
+name: fromo
+description: "FROMO - Student activity discovery app"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Map
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
+
+  # Location
+  geolocator: ^13.0.2
+  permission_handler: ^11.4.0
+
+  # Networking
+  http: ^1.4.0
+  dio: ^5.8.0+1
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^15.1.2
+
+  # Utils
+  shared_preferences: ^2.5.3
+  flutter_secure_storage: ^9.2.4
+  cached_network_image: ^3.4.1
+  url_launcher: ^6.3.1
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
