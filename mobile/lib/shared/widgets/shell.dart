@@ -6,9 +6,8 @@ class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
 
   static const _tabs = [
-    (path: '/map', label: 'Explore', icon: Icons.map_outlined, activeIcon: Icons.map),
+    (path: '/map', label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home),
     (path: '/saved', label: 'Saved', icon: Icons.bookmark_outline, activeIcon: Icons.bookmark),
-    (path: '/bookings', label: 'Bookings', icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number),
     (path: '/profile', label: 'Profile', icon: Icons.person_outline, activeIcon: Icons.person),
   ];
 
