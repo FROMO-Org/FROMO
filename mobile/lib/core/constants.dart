@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000', // Android emulator → localhost
-  );
+  static String get baseUrl {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) return envUrl;
+    // Web (Chrome) uses localhost; Android emulator uses 10.0.2.2
+    return kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+  }
 }
 
 class SupabaseConfig {

@@ -77,6 +77,42 @@ final locationProvider = StateNotifierProvider<LocationNotifier, LocationState>(
   (_) => LocationNotifier(),
 );
 
+// ── Busyness Areas ────────────────────────────────────────────────────────────
+
+class BusynessArea {
+  final String id;
+  final String name;
+  final double lat;
+  final double lng;
+  final int radiusMetres;
+  final String? level; // 'busy' | 'moderate' | 'quiet'
+
+  const BusynessArea({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    required this.radiusMetres,
+    this.level,
+  });
+
+  factory BusynessArea.fromJson(Map<String, dynamic> j) => BusynessArea(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        lat: (j['lat'] as num).toDouble(),
+        lng: (j['lng'] as num).toDouble(),
+        radiusMetres: j['radius_metres'] as int,
+        level: j['level'] as String?,
+      );
+}
+
+final busynessAreasProvider = FutureProvider.autoDispose<List<BusynessArea>>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  final res = await api.get<List<dynamic>>('/busyness-areas/');
+  final data = res.data ?? [];
+  return data.cast<Map<String, dynamic>>().map(BusynessArea.fromJson).toList();
+});
+
 // ── Nearby Events ─────────────────────────────────────────────────────────────
 
 final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
