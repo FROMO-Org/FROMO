@@ -17,48 +17,66 @@ class VenueSummary {
 class Event {
   final String id;
   final String title;
+  final String? description;
+  final String? category;
   final String venueId;
   final String hostOrganisationId;
   final String status;
   final DateTime startsAt;
   final DateTime? endsAt;
   final int priceCents;
+  final int? originalPriceCents;
   final int? capacity;
   final int? spotsRemaining;
+  final String? aiSummary;
   final DateTime createdAt;
 
   const Event({
     required this.id,
     required this.title,
+    this.description,
+    this.category,
     required this.venueId,
     required this.hostOrganisationId,
     required this.status,
     required this.startsAt,
     this.endsAt,
     required this.priceCents,
+    this.originalPriceCents,
     this.capacity,
     this.spotsRemaining,
+    this.aiSummary,
     required this.createdAt,
   });
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
         id: j['id'] as String,
         title: j['title'] as String,
+        description: j['description'] as String?,
+        category: j['category'] as String?,
         venueId: j['venue_id'] as String,
         hostOrganisationId: j['host_organisation_id'] as String,
         status: j['status'] as String,
         startsAt: DateTime.parse(j['starts_at'] as String),
         endsAt: j['ends_at'] != null ? DateTime.parse(j['ends_at'] as String) : null,
         priceCents: j['price_cents'] as int,
+        originalPriceCents: j['original_price_cents'] as int?,
         capacity: j['capacity'] as int?,
         spotsRemaining: j['spots_remaining'] as int?,
+        aiSummary: j['ai_summary'] as String?,
         createdAt: DateTime.parse(j['created_at'] as String),
       );
 
   String get priceDisplay =>
       priceCents == 0 ? 'Free' : '\$${(priceCents / 100).toStringAsFixed(2)}';
 
+  String? get originalPriceDisplay => originalPriceCents == null
+      ? null
+      : '\$${(originalPriceCents! / 100).toStringAsFixed(2)}';
+
   bool get isFree => priceCents == 0;
+  bool get isLastMinuteDeal =>
+      originalPriceCents != null && originalPriceCents! > priceCents;
 }
 
 class EventListItem {
