@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_organisation_member
@@ -38,6 +39,11 @@ def event_list_item(event: Event, venue: Venue, distance_km: float | None = None
 @router.get("/")
 def get_events(
     status: EventStatus | None = None,
+    category: str | None = None,
+    discounted_only: bool = False,
+    starts_after: datetime | None = None,
+    starts_before: datetime | None = None,
+    has_spots: bool = False,
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float = Query(default=5, gt=0),
@@ -46,11 +52,35 @@ def get_events(
     session: Session = Depends(get_session),
 ):
     query = session.query(Event, Venue).join(Venue, Event.venue_id == Venue.id)
+    
+    if (lat is None) != (lng is None):
+        raise HTTPException(status_code=400, detail="lat and lng must be provided together")
+
+
     if status is not None:
         query = query.filter(Event.status == status)
 
-    if (lat is None) != (lng is None):
-        raise HTTPException(status_code=400, detail="lat and lng must be provided together")
+    if category is not None:
+        query = query.filter(Event.category == category)
+
+    if discounted_only:
+        query = query.filter(
+            Event.original_price_cents.isnot(None),
+            Event.original_price_cents > Event.price_cents,
+    )
+
+    if starts_after is not None:
+        query = query.filter(Event.starts_at >= starts_after)
+
+    if starts_before is not None:
+        query = query.filter(Event.starts_at <= starts_before)
+
+    if has_spots:
+        query = query.filter(
+            (Event.spots_remaining.is_(None)) | (Event.spots_remaining > 0)
+    )
+
+    query = query.order_by(Event.starts_at)
 
     if lat is None or lng is None:
         rows = query.limit(limit).offset(offset).all()
@@ -96,9 +126,12 @@ def create_event(
         host_organisation_id=body.host_organisation_id,
         starts_at=body.starts_at,
         ends_at=body.ends_at,
+        original_price_cents=body.original_price_cents,
         price_cents=body.price_cents,
         capacity=body.capacity,
         spots_remaining=body.capacity,
+        category=body.category,
+        description=body.description
     )
 
     session.add(event)

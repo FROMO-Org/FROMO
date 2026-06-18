@@ -17,6 +17,10 @@ app.add_middleware(
 def get_root():
     return {"message": "it is working"}
 
+# Checking for deployment
+@app.get("/health")
+def check_if_working():
+    return {"status": "ok"}
 
 for router in all_routers:
     app.include_router(router)

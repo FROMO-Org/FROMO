@@ -22,8 +22,12 @@ class CreateEventBody(ApiSchema):
     host_organisation_id: UUID
     starts_at: datetime
     ends_at: datetime | None = None
+    original_price_cents: int | None = Field(default=None, ge=0)
     price_cents: int = Field(default=0, ge=0)
     capacity: int | None = Field(default=None, gt=0)
+    description: str | None = None
+    category: str | None = None
+
 
     @model_validator(mode="after")
     def validate_event_times(self):
