@@ -20,6 +20,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
   String? _selectedEventId;
   String _activeFilter = 'All';
+  bool _mapCenteredOnEvents = false;
 
   @override
   void initState() {
@@ -27,6 +28,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationProvider.notifier).requestLocation();
     });
+  }
+
+  void _centerOnEventsIfNeeded(List<EventListItem> events) {
+    // Only auto-pan once, and only if we have no real nearby events (distanceKm is null)
+    if (_mapCenteredOnEvents) return;
+    if (events.isEmpty) return;
+    final hasNearby = events.any((e) => e.distanceKm != null);
+    if (hasNearby) return; // user is near events, map is already correct
+    _mapCenteredOnEvents = true;
+    final first = events.first;
+    _mapController.move(LatLng(first.venue.lat, first.venue.lng), 13);
   }
 
   @override
@@ -47,6 +59,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final eventsAsync = ref.watch(nearbyEventsProvider);
     final busynessAsync = ref.watch(busynessAreasProvider);
     final height = MediaQuery.of(context).size.height;
+
+    eventsAsync.whenData(_centerOnEventsIfNeeded);
 
     return Scaffold(
       body: Stack(

@@ -121,14 +121,27 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
   final location = ref.watch(locationProvider);
   final api = ref.watch(apiClientProvider);
 
-  final params = <String, dynamic>{'status': 'active', 'limit': 50};
+  // Try with location first; fall back to all events if nothing nearby
   if (location.position != null) {
-    params['lat'] = location.position!.latitude;
-    params['lng'] = location.position!.longitude;
-    params['radius_km'] = 5;
+    final res = await api.get<List<dynamic>>('/events/', params: {
+      'status': 'active',
+      'limit': 50,
+      'lat': location.position!.latitude,
+      'lng': location.position!.longitude,
+      'radius_km': 20,
+    });
+    final nearby = (res.data ?? [])
+        .cast<Map<String, dynamic>>()
+        .map(EventListItem.fromJson)
+        .toList();
+    if (nearby.isNotEmpty) return nearby;
   }
 
-  final res = await api.get<List<dynamic>>('/events/', params: params);
+  // No location or no nearby events → fetch all
+  final res = await api.get<List<dynamic>>('/events/', params: {
+    'status': 'active',
+    'limit': 50,
+  });
   final data = res.data ?? [];
   return data.cast<Map<String, dynamic>>().map(EventListItem.fromJson).toList();
 });
