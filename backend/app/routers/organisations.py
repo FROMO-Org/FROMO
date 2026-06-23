@@ -6,12 +6,20 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.middleware.auth import get_current_user
 from app.models import Organisation, OrganisationMember, Event, Profile
-from app.schemas import CreateMembershipBody, CreateOrganisationBody
+from app.schemas import (
+    CreateMembershipBody,
+    CreateOrganisationBody,
+    CreateOrganisationResponse,
+    MembershipResponse,
+    MyOrganisationResponse,
+    OrganisationResponse,
+    PublicEventResponse,
+)
 
 router = APIRouter(prefix="/organisations", tags=["organisations"])
 
 
-@router.post("/")
+@router.post("/", response_model=CreateOrganisationResponse)
 def create_organisation(
     body: CreateOrganisationBody,
     user: dict = Depends(get_current_user),
@@ -48,7 +56,7 @@ def create_organisation(
     }
 
 
-@router.get("/me")
+@router.get("/me", response_model=list[MyOrganisationResponse])
 def get_my_organisations(user: dict = Depends(get_current_user), session: Session = Depends(get_session)):
     rows = session.query(Organisation, OrganisationMember).join(
         OrganisationMember,
@@ -67,7 +75,7 @@ def get_my_organisations(user: dict = Depends(get_current_user), session: Sessio
     ]
 
 
-@router.get("/{organisation_id}")
+@router.get("/{organisation_id}", response_model=OrganisationResponse)
 def get_organisation(organisation_id: UUID, session: Session = Depends(get_session)):
     organisation = session.query(Organisation).filter(Organisation.id == organisation_id).first()
     if not organisation:
@@ -75,7 +83,7 @@ def get_organisation(organisation_id: UUID, session: Session = Depends(get_sessi
     return organisation
 
 
-@router.get("/{organisation_id}/events")
+@router.get("/{organisation_id}/events", response_model=list[PublicEventResponse])
 def get_organisation_events(organisation_id: UUID, session: Session = Depends(get_session)):
     organisation = session.query(Organisation).filter(Organisation.id == organisation_id).first()
     if not organisation:
@@ -84,7 +92,7 @@ def get_organisation_events(organisation_id: UUID, session: Session = Depends(ge
     return session.query(Event).filter(Event.host_organisation_id == organisation_id).all()
 
 
-@router.post("/{organisation_id}/members")
+@router.post("/{organisation_id}/members", response_model=MembershipResponse)
 def add_organisation_member(
     organisation_id: UUID,
     body: CreateMembershipBody,

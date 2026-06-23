@@ -4,12 +4,12 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.middleware.auth import get_current_user
 from app.models import Profile
-from app.schemas import CreateProfileBody, UpdateProfileBody
+from app.schemas import CreateProfileBody, ProfileResponse, UpdateProfileBody
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
-@router.post("/me")
+@router.post("/me", response_model=ProfileResponse)
 def create_my_profile(
     body: CreateProfileBody,
     user: dict = Depends(get_current_user),
@@ -30,7 +30,7 @@ def create_my_profile(
     return profile
 
 
-@router.get("/me")
+@router.get("/me", response_model=ProfileResponse)
 def get_my_profile(user: dict = Depends(get_current_user), session: Session = Depends(get_session)):
     profile = session.query(Profile).filter(Profile.id == user["sub"]).first()
     if not profile:
@@ -38,7 +38,7 @@ def get_my_profile(user: dict = Depends(get_current_user), session: Session = De
     return profile
 
 
-@router.patch("/me")
+@router.patch("/me", response_model=ProfileResponse)
 def update_my_profile(body: UpdateProfileBody, user: dict = Depends(get_current_user), session: Session = Depends(get_session)):
     profile = session.query(Profile).filter(Profile.id == user["sub"]).first()
     if not profile:

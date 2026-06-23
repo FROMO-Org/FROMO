@@ -6,12 +6,12 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_organisation_member
 from app.models import Venue
-from app.schemas import CreateVenueBody
+from app.schemas import CreateVenueBody, VenueResponse
 
 router = APIRouter(prefix="/venues", tags=["venues"])
 
 
-@router.post("/")
+@router.post("/", response_model=VenueResponse)
 def create_venue(
     body: CreateVenueBody,
     user: dict = Depends(get_current_user),
@@ -36,7 +36,7 @@ def create_venue(
     return venue
 
 
-@router.get("/")
+@router.get("/", response_model=list[VenueResponse])
 def get_venues(
     organisation_id: UUID | None = None,
     category: str | None = None,
@@ -57,7 +57,7 @@ def get_venues(
     return query.limit(limit).offset(offset).all()
 
 
-@router.get("/{venue_id}")
+@router.get("/{venue_id}", response_model=VenueResponse)
 def get_venue(venue_id: UUID, session: Session = Depends(get_session)):
     venue = session.query(Venue).filter(Venue.id == venue_id).first()
     if not venue:

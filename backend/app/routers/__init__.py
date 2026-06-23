@@ -5,8 +5,9 @@ from .saved_events import router as saved_events_router
 from .bookings import router as bookings_router
 from .venues import router as venues_router
 from .busyness import router as busyness_router
+from .dashboard import router as dashboard_router
 
-all_routers = [events_router, organisations_router, profiles_router, saved_events_router, bookings_router, venues_router, busyness_router]
+all_routers = [events_router, organisations_router, profiles_router, saved_events_router, bookings_router, venues_router, busyness_router, dashboard_router]
 
 # Configs and uses all routes in main. Easier to set up. basically is logic in which one of them for the api endpoints calls.
 # Stuff like post,get,delete etc.

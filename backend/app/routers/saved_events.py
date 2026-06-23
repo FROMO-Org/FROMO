@@ -6,21 +6,12 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.middleware.auth import get_current_user
 from app.models import Event, SavedEvent, Venue
-from app.schemas import CreateSavedEventBody
+from app.schemas import CreateSavedEventBody, MySavedEventResponse, SavedEventResponse
 
 router = APIRouter(prefix="/saved-events", tags=["saved_events"])
 
 
-def venue_summary(venue: Venue) -> dict:
-    return {
-        "id": venue.id,
-        "name": venue.name,
-        "lat": float(venue.lat),
-        "lng": float(venue.lng),
-    }
-
-
-@router.get("/me")
+@router.get("/me", response_model=list[MySavedEventResponse])
 def get_my_saved_events(user: dict = Depends(get_current_user), session: Session = Depends(get_session)):
     rows = session.query(SavedEvent, Event, Venue).join(
         Event,
@@ -36,13 +27,18 @@ def get_my_saved_events(user: dict = Depends(get_current_user), session: Session
         {
             "saved_event": saved,
             "event": event,
-            "venue": venue_summary(venue),
+            "venue": {
+                "id": venue.id,
+                "name": venue.name,
+                "lat": float(venue.lat),
+                "lng": float(venue.lng),
+            },
         }
         for saved, event, venue in rows
     ]
 
 
-@router.post("/")
+@router.post("/", response_model=SavedEventResponse)
 def save_event(
     body: CreateSavedEventBody,
     user: dict = Depends(get_current_user),
@@ -55,7 +51,7 @@ def save_event(
 
     if existing:
         raise HTTPException(status_code=409, detail="Event already saved")
-    
+
     event_existing = session.query(Event).filter(
         Event.id == body.event_id
     ).first()

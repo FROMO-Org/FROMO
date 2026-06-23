@@ -1,5 +1,7 @@
 import os
 from collections.abc import Generator
+from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -40,6 +42,23 @@ def fake_user() -> dict:
         "aud": "authenticated",
         "role": "authenticated",
     }
+
+
+@pytest.fixture
+def fake_event():
+    def build_event(**overrides):
+        starts_at = datetime(2026, 6, 22, 18, 0)
+        values = {
+            "status": "active",
+            "capacity": 30,
+            "spots_remaining": 10,
+            "starts_at": starts_at,
+            "ends_at": starts_at + timedelta(hours=2),
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    return build_event
 
 
 @pytest.fixture
