@@ -81,10 +81,36 @@ flutter pub get
 flutter run -d chrome
 ```
 
-**4. Run on Android emulator** (make sure Android Studio + emulator are set up):
+**4. Run on Android emulator:**
 ```bash
 flutter run -d android
 ```
+
+If you've never set up Android before, do this once first:
+
+1. Install **Android Studio**, then the SDK + a system image — either via Android
+   Studio's SDK Manager / Device Manager, or the command line:
+   ```bash
+   brew install --cask android-commandlinetools           # macOS
+   export ANDROID_HOME="$HOME/Library/Android/sdk"         # add this to ~/.zshrc
+   sdkmanager "platform-tools" "emulator" "cmdline-tools;latest" \
+              "platforms;android-36" "build-tools;36.0.0" \
+              "system-images;android-35;google_apis;arm64-v8a"
+   avdmanager create avd -n Pixel_7_API_35 \
+              -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_7
+   flutter config --android-sdk "$ANDROID_HOME"
+   ```
+2. Start the emulator, then run:
+   ```bash
+   emulator -avd Pixel_7_API_35
+   flutter run -d android
+   ```
+3. **Type with your computer keyboard:** set `hw.keyboard=yes` in
+   `~/.android/avd/<AVD>.avd/config.ini`, then restart the emulator.
+4. **Test NYC events/heatmap:** seed data lives in Manhattan, so set the emulator
+   location (Extended controls `...` → Location) to e.g. `40.7580, -73.9855`.
+
+> Run `flutter doctor` and confirm the Android toolchain shows a green check.
 
 > Note: The backend must be running before you start the mobile app, otherwise events won't load.
 
@@ -111,3 +137,12 @@ For the backend `.env`, ask the project owner for the `DATABASE_URL` password.
 **`flutter doctor` shows errors?**
 - Chrome errors can be ignored if you're only running on web
 - Android/iOS errors can be ignored if you're only testing on Chrome
+
+**Map shows the wrong city / no events near you?**
+- The map centers on your device location. On an emulator, set the location to
+  Manhattan (`40.7580, -73.9855`) since that's where the seed data is.
+
+**Heatmap circles look like demo data?**
+- They are. Until the backend `/busyness` tables are populated, the app falls back
+  to a small built-in sample (`_sampleBusynessAreas` in `map_providers.dart`).
+  Delete that fallback once real busyness data is available.

@@ -21,6 +21,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   String? _selectedEventId;
   String _activeFilter = 'All';
   bool _mapCenteredOnEvents = false;
+  bool _mapCenteredOnLocation = false;
 
   @override
   void initState() {
@@ -60,20 +61,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final busynessAsync = ref.watch(busynessAreasProvider);
     final height = MediaQuery.of(context).size.height;
 
+    // Recenter on the user's location the first time it resolves — the map's
+    // initialCenter is read before GPS returns, so without this it stays on the default.
+    ref.listen(locationProvider, (prev, next) {
+      if (!_mapCenteredOnLocation && next.position != null) {
+        _mapCenteredOnLocation = true;
+        _mapController.move(next.position!, 14);
+      }
+    });
+
     eventsAsync.whenData(_centerOnEventsIfNeeded);
 
     return Scaffold(
       body: Stack(
         children: [
           // ── Map ──────────────────────────────────────────────────────────
+          // Full-screen so the sheet floats over it; otherwise dragging the
+          // sheet down reveals blank space below the map.
           Positioned.fill(
-            bottom: height * 0.45,
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: locationState.position ?? const LatLng(53.3498, -6.2603),
+                initialCenter: locationState.position ?? const LatLng(40.7580, -73.9855),
                 initialZoom: 14,
                 onTap: (_, _) => setState(() => _selectedEventId = null),
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
               ),
               children: [
                 TileLayer(
@@ -296,55 +310,46 @@ class _LegendDot extends StatelessWidget {
 
 // ── Top bar ────────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   final VoidCallback onLocationTap;
   const _TopBar({required this.onLocationTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cityName = ref.watch(cityNameProvider).valueOrNull ?? 'Locating…';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Material(
-              elevation: 2,
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: onLocationTap,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on, color: FromoColors.teal, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'Dublin, Ireland',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: FromoColors.gray900,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onLocationTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on, color: FromoColors.teal, size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    cityName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: FromoColors.gray900,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
+                // Tapping the bar recenters on the user; this icon hints at that.
+                const Icon(Icons.my_location, color: FromoColors.gray500, size: 18),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          Material(
-            elevation: 2,
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white,
-            child: const Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(Icons.tune, color: FromoColors.gray700, size: 22),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
