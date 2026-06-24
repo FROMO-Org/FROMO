@@ -38,6 +38,16 @@ export const listVenues = (params = {}) =>
   api.get("/venues/", { params }).then((r) => r.data);
 export const getVenue = (id) => api.get(`/venues/${id}`).then((r) => r.data);
 
+// ── Busyness ──
+export const getBusynessNearby = (params = {}) =>
+  api.get("/busyness/nearby", { params }).then((r) => r.data);
+
+// ── Organisations / Partner ──
+export const getMyOrganisations = () =>
+  api.get("/organisations/me").then((r) => r.data);
+export const getOrganisationDashboard = (orgId) =>
+  api.get(`/organisations/${orgId}/dashboard`).then((r) => r.data);
+
 // ── Discover feed ──
 // GET /events/ returns { event, distance_km, venue: { id, name, lat, lng } } —
 // the venue sub-object omits is_accessible / category / address, which the

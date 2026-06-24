@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { formatDistance, formatTime, formatPrice } from "../lib/format.js";
 
 function WheelIcon(props) {
@@ -41,9 +42,13 @@ export default function EventCard({ event, active, onSelect, onDirections }) {
           {category}
         </div>
       )}
-      <h3 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight">
+      <Link
+        to={`/events/${event.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className="mt-1 block font-display text-lg font-semibold leading-tight tracking-tight text-ink hover:underline"
+      >
         {event.title}
-      </h3>
+      </Link>
       <div className="text-[13.5px] text-muted">
         {v.name}
         {v.address ? ` · ${v.address}` : ""}

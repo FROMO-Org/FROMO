@@ -38,16 +38,23 @@ export function AuthProvider({ children }) {
   // signUp → create the profile row (keyed to the Supabase user id) → set role.
   // POST /profiles/me only takes full_name, so user_type goes in a follow-up PATCH.
   async function signUp({ email, password, fullName, userType }) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, user_type: userType } },
+    });
     if (error) throw error;
 
-    // If "Confirm email" is ON in Supabase, there's no session yet — we can't
-    // create the profile until the user confirms and signs in. For the sprint,
-    // turn that setting off so this runs immediately.
     if (data.session) {
-      await createMyProfile(fullName);
-      const updated = await updateMyProfile({ user_type: userType });
-      setProfile(updated);
+      try {
+        await createMyProfile(fullName);
+        const updated = await updateMyProfile({ user_type: userType });
+        setProfile(updated);
+      } catch {
+        // Backend may be temporarily unavailable; Supabase auth succeeded and
+        // full_name is stored in user_metadata as fallback.
+        setProfile(null);
+      }
     }
     return data;
   }

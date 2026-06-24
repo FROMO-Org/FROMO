@@ -4,7 +4,7 @@
 // main.py mounts routers with app.include_router(router) and NO global prefix,
 // so the API lives at the server root.
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+  import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 // EventStatus = Literal["draft","active","cancelled","completed"].
 // "active" is the publicly visible state for the discover feed.

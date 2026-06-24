@@ -5,8 +5,10 @@ import { useAuth } from "../context/AuthContext.jsx";
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [role, setRole] = useState("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +18,7 @@ export default function Login() {
     setBusy(true);
     try {
       await signIn({ email, password });
-      navigate("/");
+      navigate(role === "partner" ? "/partner" : "/");
     } catch (err) {
       setError(err?.message || "Couldn't sign you in. Check your details.");
     } finally {
@@ -25,50 +27,192 @@ export default function Login() {
   }
 
   return (
-    <main style={{ maxWidth: "820px", margin: "0 auto", padding: "4rem 2rem", display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
-      <h1 className="font-display font-extrabold tracking-tight" style={{ fontSize: "4.5rem", lineHeight: 1.02 }}>
-        Welcome back
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fff",
+        padding: "2rem",
+      }}
+    >
+      {/* Brand */}
+      <h1
+        className="font-display font-extrabold tracking-tight"
+        style={{ fontSize: "clamp(3.2rem, 6vw, 6rem)", lineHeight: 1, marginBottom: "0.5rem" }}
+      >
+        FROMO
       </h1>
-      <p className="text-muted" style={{ fontSize: "1.8rem", marginTop: "0.75rem" }}>
-        Log in to see what's happening near you.
+      <p className="text-muted" style={{ fontSize: "clamp(1.3rem, 1.6vw, 1.6rem)", marginBottom: "3rem" }}>
+        Discover last-minute activities in Manhattan
       </p>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: "2.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
-        <Field label="Password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
-        {error && <p style={{ color: "#E5533C", fontSize: "1.4rem" }}>{error}</p>}
+      {/* Role tabs */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1.2rem",
+          marginBottom: "2.5rem",
+        }}
+      >
+        <RoleTab label="Student" active={role === "student"} onClick={() => setRole("student")} />
+        <span className="text-muted" style={{ fontSize: "1.4rem" }}>·</span>
+        <RoleTab label="Partner" active={role === "partner"} onClick={() => setRole("partner")} />
+      </div>
+
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "2rem",
+        }}
+      >
+        <UnderlineField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+          placeholder="Email"
+        />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+          <UnderlineField
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            placeholder="Password"
+            rightSlot={
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#999", padding: "0 0.2rem", lineHeight: 1 }}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            }
+          />
+          <div style={{ textAlign: "right" }}>
+            <span
+              className="text-muted"
+              style={{ fontSize: "1.3rem", cursor: "pointer" }}
+            >
+              Forgot password?
+            </span>
+          </div>
+        </div>
+
+        {error && (
+          <p style={{ color: "#E5533C", fontSize: "1.3rem", margin: 0 }}>{error}</p>
+        )}
+
         <button
           disabled={busy}
-          className="bg-amber font-semibold text-[#231a09] hover:bg-amber-press disabled:opacity-60"
-          style={{ fontSize: "2rem", padding: "1.3rem", borderRadius: "14px", marginTop: "0.5rem" }}
+          style={{
+            background: "#14110E",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: "clamp(1.4rem, 1.8vw, 1.8rem)",
+            padding: "1.2rem",
+            borderRadius: "14px",
+            border: "none",
+            cursor: busy ? "not-allowed" : "pointer",
+            opacity: busy ? 0.6 : 1,
+            marginTop: "0.5rem",
+          }}
         >
-          {busy ? "Logging in…" : "Log in"}
+          {busy ? "Signing in…" : "Sign In"}
         </button>
       </form>
 
-      <p style={{ fontSize: "1.5rem", marginTop: "1.5rem" }} className="text-muted">
-        New to FROMO?{" "}
-        <Link to="/signup" className="font-semibold text-ink underline">
-          Create an account
+      <p className="text-muted" style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.5rem)", marginTop: "2rem" }}>
+        No account yet?{" "}
+        <Link to="/signup" className="font-semibold text-ink" style={{ textDecoration: "none", fontWeight: 700, color: "#14110E" }}>
+          Sign up
         </Link>
       </p>
-    </main>
+    </div>
   );
 }
 
-function Field({ label, type = "text", value, onChange, ...rest }) {
+function RoleTab({ label, active, onClick }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      <span style={{ fontSize: "1.6rem", fontWeight: 500 }}>{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        className="border border-line bg-surface outline-none focus:border-ink"
-        style={{ fontSize: "1.6rem", padding: "1.1rem 1.3rem", borderRadius: "12px" }}
-        {...rest}
-      />
-    </label>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "clamp(1.4rem, 1.6vw, 1.6rem)",
+        fontWeight: active ? 700 : 400,
+        color: active ? "#14110E" : "#999",
+        paddingBottom: "0.4rem",
+        borderBottom: active ? "2px solid #F5A623" : "2px solid transparent",
+        transition: "all 0.15s",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function UnderlineField({ label, type = "text", value, onChange, placeholder, rightSlot, ...rest }) {
+  return (
+    <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          borderBottom: "1.5px solid #D4C9B8",
+          paddingBottom: "0.8rem",
+        }}
+      >
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || label}
+          required
+          style={{
+            flex: 1,
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            fontSize: "clamp(1.4rem, 1.6vw, 1.6rem)",
+            color: "#14110E",
+          }}
+          {...rest}
+        />
+        {rightSlot}
+      </div>
+    </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
   );
 }
