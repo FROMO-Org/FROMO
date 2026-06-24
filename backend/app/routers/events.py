@@ -8,7 +8,14 @@ from datetime import datetime
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_organisation_member
 from app.models import Event, Venue
-from app.schemas import CreateEventBody, EventStatus, UpdateEventBody
+from app.schemas import (
+    CreateEventBody,
+    EventListItemResponse,
+    EventStatus,
+    OrganiserEventResponse,
+    PublicEventResponse,
+    UpdateEventBody,
+)
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -36,7 +43,7 @@ def event_list_item(event: Event, venue: Venue, distance_km: float | None = None
     }
 
 
-@router.get("/")
+@router.get("/", response_model=list[EventListItemResponse])
 def get_events(
     status: EventStatus | None = None,
     category: str | None = None,
@@ -46,16 +53,15 @@ def get_events(
     has_spots: bool = False,
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
-    radius_km: float = Query(default=5, gt=0),
+    radius_km: float = Query(default=5, gt=0, le=25),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ):
     query = session.query(Event, Venue).join(Venue, Event.venue_id == Venue.id)
-    
+
     if (lat is None) != (lng is None):
         raise HTTPException(status_code=400, detail="lat and lng must be provided together")
-
 
     if status is not None:
         query = query.filter(Event.status == status)
@@ -67,7 +73,7 @@ def get_events(
         query = query.filter(
             Event.original_price_cents.isnot(None),
             Event.original_price_cents > Event.price_cents,
-    )
+        )
 
     if starts_after is not None:
         query = query.filter(Event.starts_at >= starts_after)
@@ -78,7 +84,7 @@ def get_events(
     if has_spots:
         query = query.filter(
             (Event.spots_remaining.is_(None)) | (Event.spots_remaining > 0)
-    )
+        )
 
     query = query.order_by(Event.starts_at)
 
@@ -98,7 +104,7 @@ def get_events(
     return [event_list_item(event, venue, distance) for event, venue, distance in page]
 
 
-@router.get("/{event_id}")
+@router.get("/{event_id}", response_model=PublicEventResponse)
 def get_event(event_id: UUID, session: Session = Depends(get_session)):
     event = session.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -106,7 +112,7 @@ def get_event(event_id: UUID, session: Session = Depends(get_session)):
     return event
 
 
-@router.post("/")
+@router.post("/", response_model=OrganiserEventResponse)
 def create_event(
     body: CreateEventBody,
     user: dict = Depends(get_current_user),
@@ -131,7 +137,7 @@ def create_event(
         capacity=body.capacity,
         spots_remaining=body.capacity,
         category=body.category,
-        description=body.description
+        description=body.description,
     )
 
     session.add(event)
@@ -140,7 +146,7 @@ def create_event(
     return event
 
 
-@router.patch("/{event_id}")
+@router.patch("/{event_id}", response_model=OrganiserEventResponse)
 def update_event(
     event_id: UUID,
     body: UpdateEventBody,

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,21 +7,12 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.middleware.auth import get_current_user
 from app.models import Booking, Event, Venue
-from app.schemas import CreateBookingBody
+from app.schemas import BookingResponse, CreateBookingBody, MyBookingResponse
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
-def venue_summary(venue: Venue) -> dict:
-    return {
-        "id": venue.id,
-        "name": venue.name,
-        "lat": float(venue.lat),
-        "lng": float(venue.lng),
-    }
-
-
-@router.get("/me")
+@router.get("/me", response_model=list[MyBookingResponse])
 def get_my_bookings(user: dict = Depends(get_current_user), session: Session = Depends(get_session)):
     rows = session.query(Booking, Event, Venue).join(
         Event,
@@ -37,13 +28,18 @@ def get_my_bookings(user: dict = Depends(get_current_user), session: Session = D
         {
             "booking": booking,
             "event": event,
-            "venue": venue_summary(venue),
+            "venue": {
+                "id": venue.id,
+                "name": venue.name,
+                "lat": float(venue.lat),
+                "lng": float(venue.lng),
+            },
         }
         for booking, event, venue in rows
     ]
 
 
-@router.post("/")
+@router.post("/", response_model=BookingResponse)
 def make_booking(
     body: CreateBookingBody,
     user: dict = Depends(get_current_user),
@@ -61,20 +57,15 @@ def make_booking(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # Checking for specific conditions for the event so that the client won't book a bugged event.
-    now = datetime.utcnow()
-    # Is event active?
+    now = datetime.now(UTC)
     if event.status != "active":
         raise HTTPException(status_code=409, detail="Event is not active")
-    
-    # Has it ended
+
     if event.ends_at is not None and event.ends_at <= now:
         raise HTTPException(status_code=409, detail="Event has ended")
 
-    # Has it already started: maybe makes sense not to check that sometimes.
     if event.ends_at is None and event.starts_at <= now:
         raise HTTPException(status_code=409, detail="Event has already started")
-
 
     if event.spots_remaining is not None:
         if event.spots_remaining < body.quantity:
@@ -93,7 +84,7 @@ def make_booking(
     return booking
 
 
-@router.patch("/{booking_id}")
+@router.patch("/{booking_id}", response_model=BookingResponse)
 def cancel_booking(
     booking_id: UUID,
     user: dict = Depends(get_current_user),
@@ -109,7 +100,7 @@ def cancel_booking(
         raise HTTPException(status_code=409, detail="Booking already cancelled")
 
     booking.status = "cancelled"
-    booking.cancelled_at = datetime.utcnow()
+    booking.cancelled_at = datetime.now(UTC)
 
     event = session.query(Event).filter(Event.id == booking.event_id).first()
     if event and event.spots_remaining is not None:
