@@ -23,11 +23,15 @@ jobs:
           POSTGRES_DB: postgres
         ports:
           - 5432:5432                # Expose port 5432 so the app can connect via localhost:5432
+        # health-cmd: check if PostgreSQL is ready using pg_isready
+        # health-interval: run the check every 10 seconds
+        # health-timeout: fail the check if it takes longer than 5 seconds
+        # health-retries: mark the service as failed after 5 consecutive failures
         options: >-
-          --health-cmd pg_isready    # Check if PostgreSQL is ready using pg_isready
-          --health-interval 10s      # Run the health check every 10 seconds
-          --health-timeout 5s        # Fail the check if it takes longer than 5 seconds
-          --health-retries 5         # Mark the service as failed after 5 consecutive failures
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       # These environment variables are available to all steps in this job
