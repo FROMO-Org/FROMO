@@ -10,7 +10,7 @@ void main() {
     // Fake credentials are fine here — no real network calls are made in tests.
     await Supabase.initialize(
       url: 'https://example.supabase.co',
-      anonKey: 'test-anon-key',
+      publishableKey: 'test-publishable-key',
     );
   });
 
