@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,6 +10,10 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { DEFAULT_CENTER } from "../lib/config.js";
+import { useTheme } from "../context/ThemeContext.jsx";
+
+const TILE_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
 const AMBER = "#F5A623";
 const OK = "#2E9E6B";
@@ -39,15 +43,16 @@ function FlyTo({ focus }) {
   return null;
 }
 
-function BusynessLegend() {
+function BusynessLegend({ isDark }) {
   const map = useMap();
   useEffect(() => {
     const legend = L.control({ position: "bottomleft" });
     legend.onAdd = () => {
       const div = L.DomUtil.create("div");
       div.style.cssText = [
-        "background: #fff",
-        "border: 1px solid #EAE4D9",
+        `background: ${isDark ? "#262220" : "#fff"}`,
+        `border: 1px solid ${isDark ? "#3A3430" : "#EAE4D9"}`,
+        `color: ${isDark ? "#F0EAE2" : "#14110E"}`,
         "border-radius: 10px",
         "padding: 7px 13px",
         "font-size: 11px",
@@ -59,7 +64,7 @@ function BusynessLegend() {
         "align-items: center",
         "gap: 10px",
         "pointer-events: none",
-        "box-shadow: 0 1px 6px rgba(20,17,14,0.08)",
+        "box-shadow: 0 1px 6px rgba(0,0,0,0.2)",
       ].join(";");
 
       const dot = (color) =>
@@ -76,11 +81,12 @@ function BusynessLegend() {
     };
     legend.addTo(map);
     return () => legend.remove();
-  }, [map]);
+  }, [map, isDark]);
   return null;
 }
 
 export default function EventMap({ events, busynessAreas = [], focus, route, onSelect }) {
+  const { isDark } = useTheme();
   return (
     <MapContainer
       center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
@@ -90,29 +96,25 @@ export default function EventMap({ events, busynessAreas = [], focus, route, onS
       className="h-full w-full"
     >
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        key={isDark ? "dark" : "light"}
+        url={isDark ? TILE_DARK : TILE_LIGHT}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         subdomains="abcd"
         maxZoom={20}
       />
 
-      {/* Busyness zone circles — drawn below event markers */}
+      {/* Busyness heatmap — three concentric fading circles per area to create a radial gradient effect */}
       {busynessAreas.map(({ area, score }) => {
-        const color = score ? (LEVEL_COLORS[score.level] ?? AMBER) : "#BBBBBB";
-        const r = area.radius_metres > 0 ? area.radius_metres : 200;
+        if (!score) return null;
+        const color = LEVEL_COLORS[score.level] ?? AMBER;
+        const r = Math.max(area.radius_metres > 0 ? area.radius_metres : 0, 450);
+        const base = { stroke: false, fillColor: color };
         return (
-          <Circle
-            key={area.id}
-            center={[area.lat, area.lng]}
-            radius={r}
-            pathOptions={{
-              color,
-              fillColor: color,
-              fillOpacity: score ? 0.22 : 0.1,
-              weight: 1.5,
-              opacity: score ? 0.6 : 0.3,
-            }}
-          />
+          <React.Fragment key={area.id}>
+            <Circle center={[area.lat, area.lng]} radius={r}        pathOptions={{ ...base, fillOpacity: 0.08 }} />
+            <Circle center={[area.lat, area.lng]} radius={r * 0.55} pathOptions={{ ...base, fillOpacity: 0.20 }} />
+            <Circle center={[area.lat, area.lng]} radius={r * 0.25} pathOptions={{ ...base, fillOpacity: 0.50 }} />
+          </React.Fragment>
         );
       })}
 
@@ -143,11 +145,11 @@ export default function EventMap({ events, busynessAreas = [], focus, route, onS
         <GeoJSON
           key={JSON.stringify(route).slice(0, 64)}
           data={route}
-          style={{ color: "#14110E", weight: 4, opacity: 0.8 }}
+          style={{ color: isDark ? "#F0EAE2" : "#14110E", weight: 4, opacity: 0.8 }}
         />
       )}
 
-      <BusynessLegend />
+      <BusynessLegend isDark={isDark} />
       <FlyTo focus={focus} />
     </MapContainer>
   );

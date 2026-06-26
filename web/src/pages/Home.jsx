@@ -109,7 +109,7 @@ export default function Home() {
       <section aria-label="Events near you" className="px-10 pb-14 xl:px-16">
         <div className="mb-4">
           <h2 className="font-display text-[18px] font-semibold tracking-tight">
-            Happening near you
+            Happening near you 🔴
           </h2>
         </div>
 

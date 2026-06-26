@@ -2,14 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-html { font-size: 62.5%; } /* 1rem = 10px */
+:root {
+  color-scheme: light;
+  --color-ink:       #14110E;
+  --color-paper:     #FCFBF8;
+  --color-surface:   #FFFFFF;
+  --color-line:      #EAE4D9;
+  --color-line-soft: #F1ECE3;
+  --color-muted:     #5A544B;
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-ink:       #F0EAE2;
+  --color-paper:     #1C1917;
+  --color-surface:   #262220;
+  --color-line:      #3A3430;
+  --color-line-soft: #2E2A26;
+  --color-muted:     #9E9890;
+}
+
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  font-size: 1.6rem; /* reset to 16px */
-  background: #FCFBF8;
-  color: #14110E;
+  font-size: 16px;
+  background: var(--color-paper);
+  color: var(--color-ink);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }

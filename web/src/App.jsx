@@ -4,6 +4,7 @@ import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import EventDetail from "./pages/EventDetail.jsx";
+import StudentSettings from "./pages/StudentSettings.jsx";
 import PartnerLayout from "./layouts/PartnerLayout.jsx";
 import Listings from "./pages/partner/Listings.jsx";
 import Analytics from "./pages/partner/Analytics.jsx";
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/settings" element={<StudentSettings />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/partner" element={<PartnerLayout />}>
           <Route index element={<Listings />} />

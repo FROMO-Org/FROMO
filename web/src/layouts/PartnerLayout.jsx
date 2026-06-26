@@ -75,7 +75,7 @@ export default function PartnerLayout() {
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, overflowY: "auto", background: "#f7f2eb" }}>
+      <main style={{ flex: 1, overflowY: "auto", background: "var(--color-paper)" }}>
         {loadState === "loading" && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontSize: 14 }}>
             Loading…

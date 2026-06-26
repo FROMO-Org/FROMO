@@ -35,17 +35,17 @@ export default function Login() {
         alignItems: "center",
         justifyContent: "center",
         background: "#fff",
-        padding: "2rem",
+        padding: "20px",
       }}
     >
       {/* Brand */}
       <h1
         className="font-display font-extrabold tracking-tight"
-        style={{ fontSize: "clamp(3.2rem, 6vw, 6rem)", lineHeight: 1, marginBottom: "0.5rem" }}
+        style={{ fontSize: "clamp(32px, 6vw, 60px)", lineHeight: 1, marginBottom: "5px" }}
       >
         FROMO
       </h1>
-      <p className="text-muted" style={{ fontSize: "clamp(1.3rem, 1.6vw, 1.6rem)", marginBottom: "3rem" }}>
+      <p className="text-muted" style={{ fontSize: "clamp(13px, 1.6vw, 16px)", marginBottom: "30px" }}>
         Discover last-minute activities in Manhattan
       </p>
 
@@ -54,12 +54,12 @@ export default function Login() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "1.2rem",
-          marginBottom: "2.5rem",
+          gap: "12px",
+          marginBottom: "25px",
         }}
       >
         <RoleTab label="Student" active={role === "student"} onClick={() => setRole("student")} />
-        <span className="text-muted" style={{ fontSize: "1.4rem" }}>·</span>
+        <span className="text-muted" style={{ fontSize: "14px" }}>·</span>
         <RoleTab label="Partner" active={role === "partner"} onClick={() => setRole("partner")} />
       </div>
 
@@ -71,7 +71,7 @@ export default function Login() {
           maxWidth: "440px",
           display: "flex",
           flexDirection: "column",
-          gap: "2rem",
+          gap: "20px",
         }}
       >
         <UnderlineField
@@ -82,7 +82,7 @@ export default function Login() {
           autoComplete="email"
           placeholder="Email"
         />
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <UnderlineField
             label="Password"
             type={showPassword ? "text" : "password"}
@@ -94,7 +94,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#999", padding: "0 0.2rem", lineHeight: 1 }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#999", padding: "0 2px", lineHeight: 1 }}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -104,7 +104,7 @@ export default function Login() {
           <div style={{ textAlign: "right" }}>
             <span
               className="text-muted"
-              style={{ fontSize: "1.3rem", cursor: "pointer" }}
+              style={{ fontSize: "13px", cursor: "pointer" }}
             >
               Forgot password?
             </span>
@@ -112,7 +112,7 @@ export default function Login() {
         </div>
 
         {error && (
-          <p style={{ color: "#E5533C", fontSize: "1.3rem", margin: 0 }}>{error}</p>
+          <p style={{ color: "#E5533C", fontSize: "13px", margin: 0 }}>{error}</p>
         )}
 
         <button
@@ -121,20 +121,20 @@ export default function Login() {
             background: "#14110E",
             color: "#fff",
             fontWeight: 700,
-            fontSize: "clamp(1.4rem, 1.8vw, 1.8rem)",
-            padding: "1.2rem",
+            fontSize: "clamp(14px, 1.8vw, 18px)",
+            padding: "12px",
             borderRadius: "14px",
             border: "none",
             cursor: busy ? "not-allowed" : "pointer",
             opacity: busy ? 0.6 : 1,
-            marginTop: "0.5rem",
+            marginTop: "5px",
           }}
         >
           {busy ? "Signing in…" : "Sign In"}
         </button>
       </form>
 
-      <p className="text-muted" style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.5rem)", marginTop: "2rem" }}>
+      <p className="text-muted" style={{ fontSize: "clamp(13px, 1.5vw, 15px)", marginTop: "20px" }}>
         No account yet?{" "}
         <Link to="/signup" className="font-semibold text-ink" style={{ textDecoration: "none", fontWeight: 700, color: "#14110E" }}>
           Sign up
@@ -153,10 +153,10 @@ function RoleTab({ label, active, onClick }) {
         background: "none",
         border: "none",
         cursor: "pointer",
-        fontSize: "clamp(1.4rem, 1.6vw, 1.6rem)",
+        fontSize: "clamp(14px, 1.6vw, 16px)",
         fontWeight: active ? 700 : 400,
         color: active ? "#14110E" : "#999",
-        paddingBottom: "0.4rem",
+        paddingBottom: "4px",
         borderBottom: active ? "2px solid #F5A623" : "2px solid transparent",
         transition: "all 0.15s",
       }}
@@ -174,7 +174,7 @@ function UnderlineField({ label, type = "text", value, onChange, placeholder, ri
           display: "flex",
           alignItems: "center",
           borderBottom: "1.5px solid #D4C9B8",
-          paddingBottom: "0.8rem",
+          paddingBottom: "8px",
         }}
       >
         <input
@@ -188,7 +188,7 @@ function UnderlineField({ label, type = "text", value, onChange, placeholder, ri
             border: "none",
             outline: "none",
             background: "transparent",
-            fontSize: "clamp(1.4rem, 1.6vw, 1.6rem)",
+            fontSize: "clamp(14px, 1.6vw, 16px)",
             color: "#14110E",
           }}
           {...rest}

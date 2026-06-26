@@ -35,15 +35,15 @@ export default function Signup() {
   }
 
   return (
-    <main style={{ maxWidth: "520px", margin: "0 auto", padding: "4rem 2.4rem", display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
-      <h1 className="font-display font-extrabold tracking-tight" style={{ fontSize: "clamp(2.4rem, 4vw, 4.5rem)", lineHeight: 1.02 }}>
+    <main style={{ maxWidth: "520px", margin: "0 auto", padding: "40px 24px", display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
+      <h1 className="font-display font-extrabold tracking-tight" style={{ fontSize: "clamp(24px, 4vw, 45px)", lineHeight: 1.02 }}>
         Join FROMO
       </h1>
-      <p className="text-muted" style={{ fontSize: "clamp(1.4rem, 1.8vw, 1.8rem)", marginTop: "0.75rem" }}>
+      <p className="text-muted" style={{ fontSize: "clamp(14px, 1.8vw, 18px)", marginTop: "8px" }}>
         Never miss what's happening on your block.
       </p>
 
-      <div style={{ marginTop: "2rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", border: "1px solid #EAE4D9", borderRadius: "16px", padding: "0.5rem", background: "#fff" }}>
+      <div style={{ marginTop: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", border: "1px solid #EAE4D9", borderRadius: "16px", padding: "5px", background: "#fff" }}>
         <RoleTab
           label="I'm a student"
           active={userType === USER_TYPE.STUDENT}
@@ -56,22 +56,22 @@ export default function Signup() {
         />
       </div>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      <form onSubmit={handleSubmit} style={{ marginTop: "15px", display: "flex", flexDirection: "column", gap: "15px" }}>
         <Field label="Full name" value={fullName} onChange={setFullName} autoComplete="name" />
         <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
         <PasswordField value={password} onChange={setPassword} show={showPassword} onToggle={() => setShowPassword((v) => !v)} />
-        {error && <p style={{ color: "#E5533C", fontSize: "clamp(1.2rem, 1.4vw, 1.4rem)" }}>{error}</p>}
-        {notice && <p style={{ color: "#2E9E6B", fontSize: "clamp(1.2rem, 1.4vw, 1.4rem)" }}>{notice}</p>}
+        {error && <p style={{ color: "#E5533C", fontSize: "clamp(12px, 1.4vw, 14px)" }}>{error}</p>}
+        {notice && <p style={{ color: "#2E9E6B", fontSize: "clamp(12px, 1.4vw, 14px)" }}>{notice}</p>}
         <button
           disabled={busy}
           className="bg-amber font-semibold text-[#231a09] hover:bg-amber-press disabled:opacity-60"
-          style={{ fontSize: "clamp(1.4rem, 1.8vw, 1.8rem)", padding: "1.1rem", borderRadius: "14px", marginTop: "0.5rem" }}
+          style={{ fontSize: "clamp(14px, 1.8vw, 18px)", padding: "11px", borderRadius: "14px", marginTop: "5px" }}
         >
           {busy ? "Creating account…" : "Create account"}
         </button>
       </form>
 
-      <p style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.5rem)", marginTop: "1.5rem" }} className="text-muted">
+      <p style={{ fontSize: "clamp(13px, 1.5vw, 15px)", marginTop: "15px" }} className="text-muted">
         Already have an account?{" "}
         <Link to="/login" className="font-semibold text-ink underline">
           Log in
@@ -86,7 +86,7 @@ function RoleTab({ label, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.6rem)", padding: "1rem 1.2rem", borderRadius: "10px", fontWeight: 600, transition: "all 0.15s" }}
+      style={{ fontSize: "clamp(13px, 1.5vw, 16px)", padding: "10px 12px", borderRadius: "10px", fontWeight: 600, transition: "all 0.15s" }}
       className={active ? "bg-amber text-[#231a09]" : "text-muted hover:text-ink"}
     >
       {label}
@@ -96,15 +96,15 @@ function RoleTab({ label, active, onClick }) {
 
 function Field({ label, type = "text", value, onChange, ...rest }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      <span style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.6rem)", fontWeight: 500 }}>{label}</span>
+    <label style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+      <span style={{ fontSize: "clamp(13px, 1.5vw, 16px)", fontWeight: 500 }}>{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required
         className="border border-line bg-surface outline-none focus:border-ink"
-        style={{ fontSize: "1.6rem", padding: "1.1rem 1.3rem", borderRadius: "12px" }}
+        style={{ fontSize: "16px", padding: "11px 13px", borderRadius: "12px" }}
         {...rest}
       />
     </label>
@@ -113,8 +113,8 @@ function Field({ label, type = "text", value, onChange, ...rest }) {
 
 function PasswordField({ value, onChange, show, onToggle }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      <span style={{ fontSize: "clamp(1.3rem, 1.5vw, 1.6rem)", fontWeight: 500 }}>Password</span>
+    <label style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+      <span style={{ fontSize: "clamp(13px, 1.5vw, 16px)", fontWeight: 500 }}>Password</span>
       <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
         <input
           type={show ? "text" : "password"}
@@ -124,14 +124,14 @@ function PasswordField({ value, onChange, show, onToggle }) {
           minLength={6}
           autoComplete="new-password"
           className="border border-line bg-surface outline-none focus:border-ink"
-          style={{ fontSize: "1.6rem", padding: "1.1rem 4rem 1.1rem 1.3rem", borderRadius: "12px", width: "100%" }}
+          style={{ fontSize: "16px", padding: "11px 40px 11px 13px", borderRadius: "12px", width: "100%" }}
         />
         <button
           type="button"
           onClick={onToggle}
           style={{
             position: "absolute",
-            right: "1.2rem",
+            right: "12px",
             background: "none",
             border: "none",
             cursor: "pointer",

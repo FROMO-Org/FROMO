@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { updateMyProfile } from "../../lib/api";
 
 const LS_KEY = "fromo_partner_notifs";
@@ -21,6 +22,7 @@ function loadNotifs() {
 export default function PartnerSettings() {
   const { orgData } = useOutletContext();
   const { user, profile, signOut, reloadProfile } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const orgName = orgData?.dashboard?.organisation?.name ?? orgData?.org?.name ?? "";
@@ -76,9 +78,9 @@ export default function PartnerSettings() {
   }
 
   return (
-    <div style={{ background: "#fff", minHeight: "100%", padding: "40px 48px" }}>
+    <div style={{ background: "var(--color-surface)", color: "var(--color-ink)", minHeight: "100%", padding: "40px 48px" }}>
       {/* Header */}
-      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: "1px solid #e8e2da" }}>
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: "1px solid var(--color-line)" }}>
         <h1
           style={{
             fontSize: 30,
@@ -86,6 +88,7 @@ export default function PartnerSettings() {
             fontFamily: '"Bricolage Grotesque", Inter, system-ui',
             margin: 0,
             letterSpacing: "-0.02em",
+            color: "var(--color-ink)",
           }}
         >
           Settings
@@ -104,14 +107,14 @@ export default function PartnerSettings() {
                 width: 64,
                 height: 64,
                 borderRadius: "50%",
-                background: "#f0ebe2",
+                background: "var(--color-line)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
               }}
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="3" width="20" height="18" rx="2" />
                 <line x1="8" y1="3" x2="8" y2="21" />
                 <line x1="16" y1="3" x2="16" y2="21" />
@@ -121,7 +124,7 @@ export default function PartnerSettings() {
                 <line x1="16" y1="15" x2="22" y2="15" />
               </svg>
             </div>
-            <span style={{ fontSize: 13, color: "#F5A623", fontWeight: 600, cursor: "pointer" }}>Edit</span>
+            <span style={{ fontSize: 13, color: "#F5A623", fontWeight: 600, cursor: "pointer" }} >Edit</span>
           </div>
 
           <UnderlineField label="Venue name" value={form.name} onChange={(v) => handleField("name", v)} />
@@ -133,8 +136,8 @@ export default function PartnerSettings() {
             type="submit"
             disabled={saveState === "saving"}
             style={{
-              background: "#111",
-              color: "#fff",
+              background: "var(--color-ink)",
+              color: "var(--color-paper)",
               border: "none",
               padding: "14px 32px",
               borderRadius: 8,
@@ -148,6 +151,16 @@ export default function PartnerSettings() {
             {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : "Save Changes"}
           </button>
         </form>
+
+        <Divider />
+
+        {/* Appearance */}
+        <SectionLabel>Appearance</SectionLabel>
+        <NotifRow
+          label="Dark mode"
+          on={isDark}
+          onToggle={toggleTheme}
+        />
 
         <Divider />
 
@@ -185,7 +198,7 @@ export default function PartnerSettings() {
         {/* Account */}
         <SectionLabel>Account</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 18, paddingTop: 4 }}>
-          <span style={{ fontSize: 15, color: "#555", cursor: "pointer" }}>Change Password</span>
+          <span style={{ fontSize: 15, color: "var(--color-muted)", cursor: "pointer" }}>Change Password</span>
           <span
             onClick={handleSignOut}
             style={{ fontSize: 15, color: "#E53935", cursor: "pointer", fontWeight: 500 }}
@@ -200,14 +213,14 @@ export default function PartnerSettings() {
 
 function SectionLabel({ children }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#111", marginBottom: 20 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-ink)", marginBottom: 20 }}>
       {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div style={{ borderTop: "1px solid #e8e2da", margin: "36px 0" }} />;
+  return <div style={{ borderTop: "1px solid var(--color-line)", margin: "36px 0" }} />;
 }
 
 function UnderlineField({ label, value, onChange, type = "text" }) {
@@ -222,15 +235,15 @@ function UnderlineField({ label, value, onChange, type = "text" }) {
           width: "100%",
           background: "none",
           border: "none",
-          borderBottom: "1px solid #ddd",
+          borderBottom: "1px solid var(--color-line)",
           padding: "14px 0",
           fontSize: 15,
-          color: "#111",
+          color: "var(--color-ink)",
           outline: "none",
           boxSizing: "border-box",
         }}
-        onFocus={(e) => { e.target.style.borderBottomColor = "#111"; }}
-        onBlur={(e) => { e.target.style.borderBottomColor = "#ddd"; }}
+        onFocus={(e) => { e.target.style.borderBottomColor = "var(--color-ink)"; }}
+        onBlur={(e) => { e.target.style.borderBottomColor = "var(--color-line)"; }}
       />
     </div>
   );
@@ -244,12 +257,12 @@ function NotifRow({ label, sub, on, onToggle }) {
         alignItems: "center",
         justifyContent: "space-between",
         padding: "18px 0",
-        borderBottom: "1px solid #f0ebe3",
+        borderBottom: "1px solid var(--color-line-soft)",
       }}
     >
       <div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{label}</div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 3 }}>{sub}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink)" }}>{label}</div>
+        {sub && <div style={{ fontSize: 12.5, color: "var(--color-muted)", marginTop: 3 }}>{sub}</div>}
       </div>
       <button
         onClick={onToggle}
@@ -259,7 +272,7 @@ function NotifRow({ label, sub, on, onToggle }) {
           width: 46,
           height: 26,
           borderRadius: 13,
-          background: on ? "#F5A623" : "#ccc",
+          background: on ? "#F5A623" : "var(--color-line)",
           border: "none",
           cursor: "pointer",
           padding: 0,
