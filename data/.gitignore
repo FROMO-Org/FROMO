@@ -1,0 +1,16 @@
+# Raw data — never commit
+*.parquet
+*.csv.gz
+
+# Large intermediate CSVs — never commit
+features_jan_2025_mar_2026.csv
+mar_2026_deviation_predictions.csv
+
+# Explicitly allow small committed artifacts
+!norm_table.csv
+!feature_cols.json
+
+# OS / editor noise
+.DS_Store
+__pycache__/
+*.pyc
