@@ -29,7 +29,9 @@ name: Mobile CI
 on:
   push:
     branches: ["main"]
-    paths: ["mobile/**"]   # Only trigger when files inside mobile/ are changed
+    paths:
+      - "mobile/**"                            # Trigger when mobile code changes
+      - ".github/workflows/ci-mobile.yml"      # Also trigger when this workflow file itself changes
   pull_request:
     branches: ["main"]     # Always run on PRs targeting main
 
