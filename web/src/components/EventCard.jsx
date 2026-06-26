@@ -37,7 +37,7 @@ export default function EventCard({ event, active, onSelect, onDirections }) {
       }`}
     >
       {category && (
-        <div className="font-mono text-[10.5px] uppercase tracking-wider text-muted">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-amber">
           {category}
         </div>
       )}
@@ -49,12 +49,12 @@ export default function EventCard({ event, active, onSelect, onDirections }) {
         {v.address ? ` · ${v.address}` : ""}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-xs text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-[12.5px] text-ink">
         {formatTime(event.starts_at) && (
-          <span className="text-ink">🕒 {formatTime(event.starts_at)}</span>
+          <span>🕒 {formatTime(event.starts_at)}</span>
         )}
         {formatDistance(event.distance_km) && (
-          <span>{formatDistance(event.distance_km)}</span>
+          <span className="text-muted">{formatDistance(event.distance_km)}</span>
         )}
         {formatPrice(event.price_cents) != null && (
           <span>{formatPrice(event.price_cents)}</span>
