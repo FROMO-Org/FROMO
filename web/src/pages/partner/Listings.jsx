@@ -196,15 +196,16 @@ function SummaryCard({ label, value }) {
   return (
     <div
       style={{
-        background: "var(--color-surface)",
+        background: "rgba(245, 166, 35, 0.08)",
         borderLeft: "3px solid #F5A623",
         borderRadius: 10,
-        padding: "24px 28px",
+        padding: "20px 24px",
       }}
     >
+      <div style={{ fontSize: 12, color: "#888", marginBottom: 8, fontWeight: 500 }}>{label}</div>
       <div
         style={{
-          fontSize: 38,
+          fontSize: 34,
           fontWeight: 800,
           fontFamily: '"Bricolage Grotesque", Inter, system-ui',
           color: "var(--color-ink)",
@@ -214,7 +215,6 @@ function SummaryCard({ label, value }) {
       >
         {value}
       </div>
-      <div style={{ fontSize: 13, color: "#888", marginTop: 8 }}>{label}</div>
     </div>
   );
 }

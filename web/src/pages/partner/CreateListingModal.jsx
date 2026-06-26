@@ -92,19 +92,19 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
       {/* Panel */}
       <div
         style={{
-          background: "#fff", borderRadius: 14, width: "100%", maxWidth: 560,
+          background: "var(--color-paper)", borderRadius: 14, width: "100%", maxWidth: 560,
           maxHeight: "90vh", overflowY: "auto",
           boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
         }}
       >
         {/* Header */}
         <div style={{ padding: "28px 32px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', letterSpacing: "-0.02em" }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', letterSpacing: "-0.02em", color: "var(--color-ink)" }}>
             New Listing
           </h2>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#888", lineHeight: 1, padding: 4 }}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "var(--color-muted)", lineHeight: 1, padding: 4 }}
             aria-label="Close"
           >
             ×
@@ -234,7 +234,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
             <button
               type="button"
               onClick={onClose}
-              style={{ background: "none", border: "1px solid #ddd", borderRadius: 8, padding: "11px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555" }}
+              style={{ background: "none", border: "1px solid var(--color-line)", borderRadius: 8, padding: "11px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "var(--color-muted)" }}
             >
               Cancel
             </button>
@@ -259,7 +259,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 18, flex: 1 }}>
-      <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#888", marginBottom: 7 }}>
+      <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--color-muted)", marginBottom: 7 }}>
         {label}
       </label>
       {children}
@@ -277,12 +277,12 @@ function Row({ children }) {
 
 const inputStyle = {
   width: "100%",
-  border: "1px solid #e0dbd2",
+  border: "1px solid var(--color-line)",
   borderRadius: 8,
   padding: "10px 12px",
   fontSize: 14,
-  color: "#111",
-  background: "#faf9f7",
+  color: "var(--color-ink)",
+  background: "var(--color-surface)",
   outline: "none",
   boxSizing: "border-box",
   fontFamily: "Inter, system-ui, sans-serif",

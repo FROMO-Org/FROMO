@@ -30,11 +30,12 @@ export default function EventCard({ event, active, onSelect, onDirections }) {
       tabIndex={0}
       onClick={() => onSelect(event.id)}
       onKeyDown={(e) => e.key === "Enter" && onSelect(event.id)}
-      className={`cursor-pointer rounded-[14px] border bg-surface p-4 transition focus:outline-none focus-visible:ring-[3px] focus-visible:ring-amber/50 ${
+      className={`cursor-pointer rounded-[14px] border p-4 transition focus:outline-none focus-visible:ring-[3px] focus-visible:ring-amber/50 ${
         active
           ? "border-amber ring-1 ring-amber"
           : "border-line hover:border-[#dccfb6] hover:shadow-[0_6px_22px_-14px_rgba(20,17,14,.4)]"
       }`}
+      style={{ background: "rgba(245, 166, 35, 0.06)" }}
     >
       {category && (
         <div className="font-mono text-[11px] uppercase tracking-wider text-amber">

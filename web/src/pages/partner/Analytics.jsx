@@ -68,11 +68,11 @@ export default function Analytics() {
 
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
-        <MiniCard label="Total Bookings" value={bookings.toLocaleString()} sub="This month" />
+        <MiniCard label="Total Bookings" value={bookings.toLocaleString()} sub="↑ vs last month" />
         <MiniCard
           label="Revenue"
           value={`$${(rev / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`}
-          sub="This week"
+          sub="↑ vs last week"
         />
         <MiniCard label="Active Listings" value={active.toLocaleString()} sub="Right now" />
         <MiniCard label="Avg. Ticket Price" value={formatPrice(avgPriceCents) ?? "—"} sub="Across listings" />
@@ -177,12 +177,12 @@ export default function Analytics() {
 
 function MiniCard({ label, value, sub }) {
   return (
-    <div style={{ background: "var(--color-surface)", borderLeft: "3px solid #F5A623", borderRadius: 10, padding: "20px 22px" }}>
-      <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', color: "var(--color-ink)", letterSpacing: "-0.02em", lineHeight: 1 }}>
+    <div style={{ background: "rgba(245, 166, 35, 0.08)", borderLeft: "3px solid #F5A623", borderRadius: 10, padding: "20px 22px" }}>
+      <div style={{ fontSize: 12, color: "#888", marginBottom: 8, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 34, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', color: "var(--color-ink)", letterSpacing: "-0.02em", lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 11, color: "#aaa", marginTop: 6 }}>{sub}</div>
+      <div style={{ fontSize: 12, color: "#F5A623", marginTop: 8, fontWeight: 600 }}>{sub}</div>
     </div>
   );
 }
@@ -203,11 +203,12 @@ function PerformanceBadge({ status }) {
 }
 
 function LineChart({ data }) {
-  const W = 460, H = 140;
-  const PAD = { t: 10, r: 10, b: 28, l: 28 };
+  const W = 460, H = 160;
+  const PAD = { t: 10, r: 10, b: 28, l: 36 };
   const innerW = W - PAD.l - PAD.r;
   const innerH = H - PAD.t - PAD.b;
   const maxY = Math.max(...data.map((d) => d.value), 1);
+  const ticks = 4;
   const xOf = (i) => PAD.l + (i / (data.length - 1)) * innerW;
   const yOf = (v) => PAD.t + innerH - (v / maxY) * innerH;
   const pts = data.map((d, i) => `${xOf(i)},${yOf(d.value)}`).join(" ");
@@ -215,6 +216,16 @@ function LineChart({ data }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+      {Array.from({ length: ticks + 1 }, (_, i) => {
+        const v = Math.round((maxY / ticks) * i);
+        const y = yOf(v);
+        return (
+          <g key={i}>
+            <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="var(--color-line)" strokeWidth="1" />
+            <text x={PAD.l - 6} y={y + 4} textAnchor="end" fontSize="9" fill="#888" fontFamily="Inter, system-ui">{v}</text>
+          </g>
+        );
+      })}
       <polygon points={fillPts} fill="#F5A623" fillOpacity="0.12" />
       <polyline points={pts} fill="none" stroke="#F5A623" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {data.map((d, i) => (
@@ -225,7 +236,6 @@ function LineChart({ data }) {
           {d.label}
         </text>
       ))}
-      <line x1={PAD.l} y1={PAD.t + innerH} x2={W - PAD.r} y2={PAD.t + innerH} stroke="#555" strokeWidth="1" />
     </svg>
   );
 }
