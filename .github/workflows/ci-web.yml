@@ -38,7 +38,9 @@ name: Web CI
 on:
   push:
     branches: ["main"]
-    paths: ["web/**"]    # Only trigger when files inside web/ are changed
+    paths:
+      - "web/**"                               # Trigger when web code changes
+      - ".github/workflows/ci-web.yml"         # Also trigger when this workflow file itself changes
   pull_request:
     branches: ["main"]   # Always run on PRs targeting main
 
