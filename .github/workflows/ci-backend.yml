@@ -1,23 +1,65 @@
+# Checks lockfile sync, installs dependencies, lints with ruff, and runs pytest against a temporary PostgreSQL database.
+
 name: Backend CI
 
 on:
   push:
     branches: ["main"]
-    paths: ["backend/**"]
+    paths: ["backend/**"]   # Only trigger when files inside backend/ are changed
   pull_request:
-    branches: ["main"]
+    branches: ["main"]      # Always run on PRs targeting main, regardless of which files changed
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: ubuntu-latest  # Use a Linux VM — matches production environment and is free on GitHub Actions
 
-      - name: Set up runtime
-        run: echo "TODO - add setup step once framework is decided"
+    services:
+      # Spin up a temporary PostgreSQL container for the duration of this job
+      postgres:
+        image: postgres:17           # Use the official PostgreSQL 17 Docker image
+        env:
+          POSTGRES_USER: postgres    # These are fine as plain text — this is a throwaway test DB,
+          POSTGRES_PASSWORD: postgres # not a production database. It is destroyed after the job ends.
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432                # Expose port 5432 so the app can connect via localhost:5432
+        options: >-
+          --health-cmd pg_isready    # Check if PostgreSQL is ready using pg_isready
+          --health-interval 10s      # Run the health check every 10 seconds
+          --health-timeout 5s        # Fail the check if it takes longer than 5 seconds
+          --health-retries 5         # Mark the service as failed after 5 consecutive failures
+
+    env:
+      # These environment variables are available to all steps in this job
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres  # Matches the service config above
+      SUPABASE_URL: https://example.supabase.co        # Fake value — tests do not call real Supabase
+      SUPABASE_PUBLISHABLE_KEY: test-publishable-key   # Fake value — same reason as above
+      # If real secrets are ever needed, use ${{ secrets.SECRET_NAME }} instead of plain text
+
+    steps:
+      - uses: actions/checkout@v4   # Clone the repository into the virtual machine
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5  # Install the uv package manager using its official GitHub Action
+        with:
+          enable-cache: true         # Cache downloaded packages — skips re-downloading on repeat runs
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14  # Install Python 3.14 (required by pyproject.toml)
+
+      - name: Check lockfile is up to date
+        working-directory: backend
+        run: uv lock --check         # Fail if uv.lock is out of sync with pyproject.toml
+                                     # Catches cases where someone added a dependency but forgot to run uv lock
 
       - name: Install dependencies
-        run: echo "TODO - npm install OR pip install -r requirements.txt"
+        working-directory: backend
+        run: uv sync --group dev     # Install all dependencies (including dev group: pytest, ruff) using uv.lock
+
+      - name: Lint with ruff
+        working-directory: backend
+        run: uv run ruff check .     # Check all Python files for style and syntax issues
 
       - name: Run tests
-        run: echo "TODO - npm test OR pytest"
+        working-directory: backend
+        run: uv run pytest           # Run all tests discovered under the tests/ directory
