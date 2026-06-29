@@ -20,7 +20,8 @@ class Event {
   final String? description;
   final String? category;
   final String venueId;
-  final String hostOrganisationId;
+  // Only present on the organiser response; the public event payload omits it.
+  final String? hostOrganisationId;
   final String status;
   final DateTime startsAt;
   final DateTime? endsAt;
@@ -37,7 +38,7 @@ class Event {
     this.description,
     this.category,
     required this.venueId,
-    required this.hostOrganisationId,
+    this.hostOrganisationId,
     required this.status,
     required this.startsAt,
     this.endsAt,
@@ -55,7 +56,7 @@ class Event {
         description: j['description'] as String?,
         category: j['category'] as String?,
         venueId: j['venue_id'] as String,
-        hostOrganisationId: j['host_organisation_id'] as String,
+        hostOrganisationId: j['host_organisation_id'] as String?,
         status: j['status'] as String,
         startsAt: DateTime.parse(j['starts_at'] as String),
         endsAt: j['ends_at'] != null ? DateTime.parse(j['ends_at'] as String) : null,
@@ -77,6 +78,14 @@ class Event {
   bool get isFree => priceCents == 0;
   bool get isLastMinuteDeal =>
       originalPriceCents != null && originalPriceCents! > priceCents;
+
+  /// Mirrors the backend booking rule: an event can't be booked once it has
+  /// ended (or, when there's no end time, once it has started).
+  bool get isPast {
+    final now = DateTime.now();
+    final cutoff = endsAt ?? startsAt;
+    return !cutoff.isAfter(now);
+  }
 }
 
 class EventListItem {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
@@ -167,10 +168,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 onFilterChanged: (f) => setState(() => _activeFilter = f),
                 eventsAsync: eventsAsync,
                 selectedEventId: _selectedEventId,
-                onEventTap: (item) {
-                  setState(() => _selectedEventId = item.event.id);
-                  _mapController.move(LatLng(item.venue.lat, item.venue.lng), 15);
-                },
                 applyFilter: _applyFilter,
               );
             },
@@ -363,7 +360,6 @@ class _BottomPanel extends StatelessWidget {
   final ValueChanged<String> onFilterChanged;
   final AsyncValue<List<EventListItem>> eventsAsync;
   final String? selectedEventId;
-  final ValueChanged<EventListItem> onEventTap;
   final List<EventListItem> Function(List<EventListItem>) applyFilter;
 
   const _BottomPanel({
@@ -372,7 +368,6 @@ class _BottomPanel extends StatelessWidget {
     required this.onFilterChanged,
     required this.eventsAsync,
     required this.selectedEventId,
-    required this.onEventTap,
     required this.applyFilter,
   });
 
@@ -481,10 +476,10 @@ class _BottomPanel extends StatelessWidget {
                 sliver: SliverList.separated(
                   itemCount: filtered.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _ActivityCard(
+                  itemBuilder: (context, i) => _ActivityCard(
                     item: filtered[i],
                     isSelected: selectedEventId == filtered[i].event.id,
-                    onTap: () => onEventTap(filtered[i]),
+                    onTap: () => context.push('/events/${filtered[i].event.id}'),
                   ),
                 ),
               );
