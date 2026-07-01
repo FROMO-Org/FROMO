@@ -23,6 +23,7 @@ class PublicEventResponse(OrmSchema):
     status: EventStatus
     venue_id: UUID
     created_at: datetime
+    image_url: str | None = None
 
 
 class OrganiserEventResponse(PublicEventResponse):
@@ -49,6 +50,7 @@ class CreateEventBody(ApiSchema):
     capacity: int | None = Field(default=None, gt=0)
     description: str | None = None
     category: str | None = None
+    image_url: str | None = None
 
     @model_validator(mode="after")
     def validate_event_times(self):
@@ -66,6 +68,7 @@ class UpdateEventBody(ApiSchema):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     status: EventStatus | None = None
+    image_url: str | None = None
 
     @model_validator(mode="after")
     def validate_event_times(self):
