@@ -1,9 +1,9 @@
-from datetime import datetime, UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.datetime import to_naive_utc, utc_now_naive
 from app.database import get_session
 from app.middleware.auth import get_current_user
 from app.models import Booking, Event, Venue
@@ -57,14 +57,17 @@ def make_booking(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    now = datetime.now(UTC)
+    now = utc_now_naive()
+    event_starts_at = to_naive_utc(event.starts_at)
+    event_ends_at = to_naive_utc(event.ends_at)
+
     if event.status != "active":
         raise HTTPException(status_code=409, detail="Event is not active")
 
-    if event.ends_at is not None and event.ends_at <= now:
+    if event_ends_at is not None and event_ends_at <= now:
         raise HTTPException(status_code=409, detail="Event has ended")
 
-    if event.ends_at is None and event.starts_at <= now:
+    if event_ends_at is None and event_starts_at <= now:
         raise HTTPException(status_code=409, detail="Event has already started")
 
     if event.spots_remaining is not None:
@@ -100,7 +103,7 @@ def cancel_booking(
         raise HTTPException(status_code=409, detail="Booking already cancelled")
 
     booking.status = "cancelled"
-    booking.cancelled_at = datetime.now(UTC)
+    booking.cancelled_at = utc_now_naive()
 
     event = session.query(Event).filter(Event.id == booking.event_id).first()
     if event and event.spots_remaining is not None:
