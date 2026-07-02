@@ -12,7 +12,7 @@ on:
       - "data/**"                          # Trigger when data/ML code or artifacts change
       - ".github/workflows/ci-data.yml"    # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main"]      # Always run on PRs targeting main, regardless of which files changed
+    branches: ["main", "busyness_model"]   # Run on PRs targeting main or busyness_model
 
 jobs:
   validate:
