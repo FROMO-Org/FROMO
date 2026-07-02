@@ -2,12 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  --color-paper: #FCFBF8;
+  --color-surface: #FFFFFF;
+  --color-ink: #14110E;
+  --color-line: #EAE4D9;
+  --color-muted: #5A544B;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #111111;
+  --color-surface: #1C1C1E;
+  --color-ink: #F5F0E8;
+  --color-line: #2C2C2E;
+  --color-muted: #8E8E93;
+}
+
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: #FCFBF8;
-  color: #14110E;
+  background: var(--color-paper);
+  color: var(--color-ink);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -84,3 +101,12 @@ input, select, textarea { font-size: 16px; }
 @media (prefers-reduced-motion: reduce) {
   .live-dot { animation: none; }
 }
+
+/* ── Dark mode overrides for Tailwind utility classes ── */
+[data-theme="dark"] .bg-surface   { background-color: #1C1C1E; }
+[data-theme="dark"] .bg-paper     { background-color: #111111; }
+[data-theme="dark"] .text-ink     { color: #F5F0E8; }
+[data-theme="dark"] .text-muted   { color: #8E8E93; }
+[data-theme="dark"] .border-line  { border-color: #2C2C2E; }
+[data-theme="dark"] .border-line-soft { border-color: #2C2C2E; }
+[data-theme="dark"] .bg-line      { background-color: #2C2C2E; }

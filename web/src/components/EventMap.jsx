@@ -5,10 +5,12 @@ import {
   Marker,
   Popup,
   GeoJSON,
+  CircleMarker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import { DEFAULT_CENTER } from "../lib/config.js";
+import { useTheme } from "../context/ThemeContext.jsx";
 
 const AMBER = "#F5A623";
 const OK = "#2E9E6B";
@@ -31,7 +33,12 @@ function FlyTo({ focus }) {
   return null;
 }
 
-export default function EventMap({ events, focus, route, onSelect }) {
+export default function EventMap({ events, busynessAreas = [], focus, route, onSelect }) {
+  const { isDark } = useTheme();
+  const tileUrl = isDark
+    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
   return (
     <MapContainer
       center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
@@ -41,11 +48,29 @@ export default function EventMap({ events, focus, route, onSelect }) {
       className="h-full w-full"
     >
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        key={tileUrl}
+        url={tileUrl}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         subdomains="abcd"
         maxZoom={20}
       />
+
+      {busynessAreas.map((area, i) => {
+        const level = area.level ?? area.busyness_score ?? 0.5;
+        return (
+          <CircleMarker
+            key={i}
+            center={[area.lat, area.lng]}
+            radius={28}
+            pathOptions={{
+              color: "#F5A623",
+              fillColor: "#F5A623",
+              fillOpacity: level * 0.35,
+              weight: 0,
+            }}
+          />
+        );
+      })}
 
       {events.map((e) => {
         const v = e.venue || {};

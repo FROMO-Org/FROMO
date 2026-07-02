@@ -10,9 +10,6 @@ import {
 
 export const api = axios.create({ baseURL: API_BASE_URL });
 
-// Attach the Supabase access token to every request. This is the SAME token
-// your FastAPI backend authorises against — get_current_user reads
-// user["sub"] / user["email"] straight out of this JWT.
 api.interceptors.request.use(async (config) => {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -38,11 +35,23 @@ export const listVenues = (params = {}) =>
   api.get("/venues/", { params }).then((r) => r.data);
 export const getVenue = (id) => api.get(`/venues/${id}`).then((r) => r.data);
 
+// ── Busyness ──
+export const getBusynessNearby = (params = {}) =>
+  api.get("/busyness/nearby", { params }).then((r) => r.data);
+
+// ── Events (write) ──
+export const createEvent = (body) =>
+  api.post("/events/", body).then((r) => r.data);
+
+// ── Organisations / Partner ──
+export const getMyOrganisations = () =>
+  api.get("/organisations/me").then((r) => r.data);
+export const getOrganisationDashboard = (orgId) =>
+  api.get(`/organisations/${orgId}/dashboard`).then((r) => r.data);
+export const createOrganisation = (name) =>
+  api.post("/organisations/", { name }).then((r) => r.data);
+
 // ── Discover feed ──
-// GET /events/ returns { event, distance_km, venue: { id, name, lat, lng } } —
-// the venue sub-object omits is_accessible / category / address, which the
-// home page needs. Until those are added to event_list_item on the backend,
-// we fetch venues once and merge them in client-side.
 export async function getDiscoverFeed({
   lat = DEFAULT_CENTER.lat,
   lng = DEFAULT_CENTER.lng,
