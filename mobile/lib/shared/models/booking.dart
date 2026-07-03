@@ -27,7 +27,7 @@ class Booking {
         quantity: j['quantity'] as int,
         totalPriceCents: j['total_price_cents'] as int,
         status: j['status'] as String,
-        bookedAt: DateTime.parse(j['booked_at'] as String),
+        bookedAt: DateTime.parse((j['booked_at'] ?? j['created_at']) as String),
         cancelledAt: j['cancelled_at'] != null
             ? DateTime.parse(j['cancelled_at'] as String)
             : null,

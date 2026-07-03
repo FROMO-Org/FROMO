@@ -1,14 +1,41 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
 import 'map_providers.dart';
 
 const _filterCategories = ['All', 'Food', 'Music', 'Sports', 'Nightlife', 'Outdoors', 'Study'];
+
+class _CrowdBadgeData {
+  final String label;
+  final Color color;
+  final Color glowColor;
+
+  const _CrowdBadgeData({
+    required this.label,
+    required this.color,
+    required this.glowColor,
+  });
+}
+
+class _PinLayout {
+  final EventListItem item;
+  final Offset offset;
+  final int siblingCount;
+
+  const _PinLayout({
+    required this.item,
+    required this.offset,
+    required this.siblingCount,
+  });
+}
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -39,8 +66,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final hasNearby = events.any((e) => e.distanceKm != null);
     if (hasNearby) return; // user is near events, map is already correct
     _mapCenteredOnEvents = true;
-    final first = events.first;
-    _mapController.move(LatLng(first.venue.lat, first.venue.lng), 13);
+    final center = eventClusterCenter(events);
+    ref.read(locationProvider.notifier).setFallbackPosition(center);
+    _mapController.move(center, 13);
   }
 
   @override
@@ -60,7 +88,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final locationState = ref.watch(locationProvider);
     final eventsAsync = ref.watch(nearbyEventsProvider);
     final busynessAsync = ref.watch(busynessAreasProvider);
-    final height = MediaQuery.of(context).size.height;
 
     // Recenter on the user's location the first time it resolves — the map's
     // initialCenter is read before GPS returns, so without this it stays on the default.
@@ -97,30 +124,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   userAgentPackageName: 'com.fromo.fromo',
                 ),
 
-                // Heatmap circles
-                busynessAsync.when(
-                  data: (areas) => CircleLayer(
-                    circles: areas.map((a) {
-                      final color = switch (a.level) {
-                        'busy'     => const Color(0xFFEF4444),
-                        'moderate' => const Color(0xFFF59E0B),
-                        'quiet'    => const Color(0xFF22C55E),
-                        _          => const Color(0xFF9CA3AF),
-                      };
-                      return CircleMarker(
-                        point: LatLng(a.lat, a.lng),
-                        radius: a.radiusMetres.toDouble(),
-                        useRadiusInMeter: true,
-                        color: color.withValues(alpha: 0.22),
-                        borderColor: color.withValues(alpha: 0.45),
-                        borderStrokeWidth: 1.5,
-                      );
-                    }).toList(),
-                  ),
-                  loading: () => CircleLayer(circles: <CircleMarker<Object>>[]),
-                  error: (_, _) => CircleLayer(circles: <CircleMarker<Object>>[]),
-                ),
-
                 // User location dot
                 if (locationState.position != null)
                   MarkerLayer(markers: [_buildLocationDot(locationState.position!)]),
@@ -128,7 +131,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 // Event price pins
                 eventsAsync.when(
                   data: (items) => MarkerLayer(
-                    markers: _applyFilter(items).map(_buildEventPin).toList(),
+                    markers: _buildEventMarkers(
+                      _applyFilter(items),
+                      busynessAsync.valueOrNull ?? const [],
+                    )
+                        .toList(),
                   ),
                   loading: () => const MarkerLayer(markers: []),
                   error: (_, _) => const MarkerLayer(markers: []),
@@ -147,13 +154,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
 
-          // ── Busyness legend ──────────────────────────────────────────────
-          Positioned(
-            left: 16,
-            bottom: height * 0.45 + 10,
-            child: const _BusynessLegend(),
-          ),
-
           // ── Bottom draggable panel ────────────────────────────────────────
           DraggableScrollableSheet(
             initialChildSize: 0.45,
@@ -169,6 +169,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 eventsAsync: eventsAsync,
                 selectedEventId: _selectedEventId,
                 applyFilter: _applyFilter,
+                busynessAreas: busynessAsync.valueOrNull ?? const [],
+                onEventTap: (item) {
+                  setState(() => _selectedEventId = item.event.id);
+                  _mapController.move(LatLng(item.venue.lat, item.venue.lng), 15);
+                },
               );
             },
           ),
@@ -184,6 +189,99 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ],
       ),
     );
+  }
+
+  _CrowdBadgeData _crowdForEvent(EventListItem item, List<BusynessArea> areas) {
+    if (areas.isEmpty) {
+      return const _CrowdBadgeData(
+        label: 'Medium crowd',
+        color: Color(0xFFF59E0B),
+        glowColor: Color(0xFFFDE68A),
+      );
+    }
+
+    final distance = ll.Distance();
+    BusynessArea? closest;
+    double closestMeters = double.infinity;
+
+    for (final area in areas) {
+      final meters = distance.as(
+        ll.LengthUnit.Meter,
+        LatLng(item.venue.lat, item.venue.lng),
+        LatLng(area.lat, area.lng),
+      );
+      if (meters < closestMeters) {
+        closestMeters = meters;
+        closest = area;
+      }
+    }
+
+    switch (closest?.level) {
+      case 'busy':
+        return const _CrowdBadgeData(
+          label: 'High crowd',
+          color: Color(0xFFEF4444),
+          glowColor: Color(0xFFFCA5A5),
+        );
+      case 'quiet':
+        return const _CrowdBadgeData(
+          label: 'Low crowd',
+          color: Color(0xFF22C55E),
+          glowColor: Color(0xFF86EFAC),
+        );
+      default:
+        return const _CrowdBadgeData(
+          label: 'Medium crowd',
+          color: Color(0xFFF59E0B),
+          glowColor: Color(0xFFFDE68A),
+        );
+    }
+  }
+
+  List<Marker> _buildEventMarkers(
+    List<EventListItem> items,
+    List<BusynessArea> areas,
+  ) {
+    final buckets = <String, List<EventListItem>>{};
+    for (final item in items) {
+      final key =
+          '${item.venue.lat.toStringAsFixed(3)},${item.venue.lng.toStringAsFixed(3)}';
+      buckets.putIfAbsent(key, () => []).add(item);
+    }
+
+    final layouts = <_PinLayout>[];
+    for (final bucket in buckets.values) {
+      if (bucket.length == 1) {
+        layouts.add(_PinLayout(
+          item: bucket.first,
+          offset: Offset.zero,
+          siblingCount: 1,
+        ));
+        continue;
+      }
+
+      final radius = bucket.length == 2 ? 18.0 : 24.0;
+      for (var i = 0; i < bucket.length; i++) {
+        final angle = (-math.pi / 2) + ((2 * math.pi * i) / bucket.length);
+        layouts.add(_PinLayout(
+          item: bucket[i],
+          offset: Offset(
+            math.cos(angle) * radius,
+            math.sin(angle) * radius,
+          ),
+          siblingCount: bucket.length,
+        ));
+      }
+    }
+
+    return layouts
+        .map((layout) => _buildEventPin(
+              layout.item,
+              _crowdForEvent(layout.item, areas),
+              offset: layout.offset,
+              siblingCount: layout.siblingCount,
+            ))
+        .toList();
   }
 
   Marker _buildLocationDot(LatLng pos) {
@@ -208,99 +306,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Marker _buildEventPin(EventListItem item) {
+  Marker _buildEventPin(
+    EventListItem item,
+    _CrowdBadgeData crowd, {
+    required Offset offset,
+    required int siblingCount,
+  }) {
     final isSelected = _selectedEventId == item.event.id;
     return Marker(
       point: LatLng(item.venue.lat, item.venue.lng),
-      width: isSelected ? 84 : 72,
-      height: 34,
+      width: 124,
+      height: 110,
       child: GestureDetector(
         onTap: () {
           setState(() => _selectedEventId = item.event.id);
           _mapController.move(LatLng(item.venue.lat, item.venue.lng), 15);
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: isSelected ? FromoColors.tealDark : FromoColors.teal,
-            borderRadius: BorderRadius.circular(20),
-            border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
-            boxShadow: [
-              BoxShadow(
-                color: FromoColors.teal.withValues(alpha: isSelected ? 0.5 : 0.3),
-                blurRadius: isSelected ? 10 : 4,
-              ),
-            ],
-          ),
-          child: Text(
-            item.event.priceDisplay,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        child: Transform.translate(
+          offset: offset,
+          child: _PulseEventPin(
+            isSelected: isSelected,
+            priceLabel: item.event.priceDisplay,
+            crowd: crowd,
+            siblingCount: siblingCount,
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── Busyness legend ────────────────────────────────────────────────────────────
-
-class _BusynessLegend extends StatelessWidget {
-  const _BusynessLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LegendDot(color: Color(0xFFEF4444), label: 'Busy'),
-          SizedBox(width: 10),
-          _LegendDot(color: Color(0xFFF59E0B), label: 'Moderate'),
-          SizedBox(width: 10),
-          _LegendDot(color: Color(0xFF22C55E), label: 'Quiet'),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _LegendDot({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: FromoColors.gray700)),
-      ],
     );
   }
 }
@@ -361,6 +392,8 @@ class _BottomPanel extends StatelessWidget {
   final AsyncValue<List<EventListItem>> eventsAsync;
   final String? selectedEventId;
   final List<EventListItem> Function(List<EventListItem>) applyFilter;
+  final List<BusynessArea> busynessAreas;
+  final ValueChanged<EventListItem> onEventTap;
 
   const _BottomPanel({
     required this.scrollController,
@@ -369,6 +402,8 @@ class _BottomPanel extends StatelessWidget {
     required this.eventsAsync,
     required this.selectedEventId,
     required this.applyFilter,
+    required this.busynessAreas,
+    required this.onEventTap,
   });
 
   @override
@@ -479,7 +514,11 @@ class _BottomPanel extends StatelessWidget {
                   itemBuilder: (context, i) => _ActivityCard(
                     item: filtered[i],
                     isSelected: selectedEventId == filtered[i].event.id,
-                    onTap: () => context.push('/events/${filtered[i].event.id}'),
+                    crowd: _crowdForEvent(filtered[i], busynessAreas),
+                    onTap: () {
+                      onEventTap(filtered[i]);
+                      context.push('/events/${filtered[i].event.id}');
+                    },
                   ),
                 ),
               );
@@ -487,8 +526,22 @@ class _BottomPanel extends StatelessWidget {
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(child: Text('Error: $e')),
+            error: (_, _) => const SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.search_off, size: 48, color: FromoColors.gray200),
+                    SizedBox(height: 12),
+                    Text('No events nearby', style: TextStyle(color: FromoColors.gray500)),
+                    SizedBox(height: 4),
+                    Text(
+                      'Please try again in a moment',
+                      style: TextStyle(color: FromoColors.gray500, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -497,14 +550,67 @@ class _BottomPanel extends StatelessWidget {
   }
 }
 
+_CrowdBadgeData _crowdForEvent(EventListItem item, List<BusynessArea> areas) {
+  if (areas.isEmpty) {
+    return const _CrowdBadgeData(
+      label: 'Medium crowd',
+      color: Color(0xFFF59E0B),
+      glowColor: Color(0xFFFDE68A),
+    );
+  }
+
+  final distance = ll.Distance();
+  BusynessArea? closest;
+  double closestMeters = double.infinity;
+
+  for (final area in areas) {
+    final meters = distance.as(
+      ll.LengthUnit.Meter,
+      LatLng(item.venue.lat, item.venue.lng),
+      LatLng(area.lat, area.lng),
+    );
+    if (meters < closestMeters) {
+      closestMeters = meters;
+      closest = area;
+    }
+  }
+
+  switch (closest?.level) {
+    case 'busy':
+      return const _CrowdBadgeData(
+        label: 'High crowd',
+        color: Color(0xFFEF4444),
+        glowColor: Color(0xFFFCA5A5),
+      );
+    case 'quiet':
+      return const _CrowdBadgeData(
+        label: 'Low crowd',
+        color: Color(0xFF22C55E),
+        glowColor: Color(0xFF86EFAC),
+      );
+    default:
+      return const _CrowdBadgeData(
+        label: 'Medium crowd',
+        color: Color(0xFFF59E0B),
+        glowColor: Color(0xFFFDE68A),
+      );
+  }
+}
+
 // ── Activity card ──────────────────────────────────────────────────────────────
 
 class _ActivityCard extends StatelessWidget {
   final EventListItem item;
   final bool isSelected;
+  final _CrowdBadgeData crowd;
   final VoidCallback onTap;
 
-  const _ActivityCard({required this.item, required this.isSelected, required this.onTap});
+  const _ActivityCard({
+    required this.item,
+    required this.isSelected,
+    required this.crowd,
+    required this.onTap,
+  });
 
   Future<void> _openDirections() async {
     final lat = item.venue.lat;
@@ -573,6 +679,10 @@ class _ActivityCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+
+                  const SizedBox(height: 6),
+
+                  _CrowdChip(crowd: crowd),
 
                   const SizedBox(height: 3),
 
@@ -736,5 +846,138 @@ class _ActivityCard extends StatelessWidget {
   String _weekday(DateTime dt) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[dt.weekday - 1];
+  }
+}
+
+class _CrowdChip extends StatelessWidget {
+  final _CrowdBadgeData crowd;
+  const _CrowdChip({required this.crowd});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: crowd.color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        crowd.label,
+        style: TextStyle(
+          color: crowd.color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _PulseEventPin extends StatefulWidget {
+  final bool isSelected;
+  final String priceLabel;
+  final _CrowdBadgeData crowd;
+  final int siblingCount;
+
+  const _PulseEventPin({
+    required this.isSelected,
+    required this.priceLabel,
+    required this.crowd,
+    required this.siblingCount,
+  });
+
+  @override
+  State<_PulseEventPin> createState() => _PulseEventPinState();
+}
+
+class _PulseEventPinState extends State<_PulseEventPin>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        final haloScale = 0.92 + (t * 0.22);
+        final haloAlpha = 0.10 + ((1 - t) * 0.18);
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.scale(
+              scale: haloScale,
+              child: Container(
+                width: widget.isSelected ? 84 : 74,
+                height: widget.isSelected ? 84 : 74,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.crowd.glowColor.withValues(alpha: haloAlpha),
+                ),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: widget.isSelected ? FromoColors.tealDark : FromoColors.teal,
+                borderRadius: BorderRadius.circular(999),
+                border: widget.isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.crowd.color.withValues(alpha: 0.28),
+                    blurRadius: widget.isSelected ? 14 : 8,
+                    spreadRadius: widget.isSelected ? 1.5 : 0.5,
+                  ),
+                ],
+              ),
+              child: Text(
+                widget.priceLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (widget.siblingCount > 1)
+              Positioned(
+                top: 16,
+                right: 18,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: widget.crowd.color.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    '${widget.siblingCount}',
+                    style: TextStyle(
+                      color: widget.crowd.color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 }

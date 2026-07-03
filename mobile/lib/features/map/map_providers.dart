@@ -72,11 +72,35 @@ class LocationNotifier extends StateNotifier<LocationState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  void setFallbackPosition(LatLng position) {
+    if (state.position != null) return;
+    state = state.copyWith(position: position, isLoading: false);
+  }
 }
 
 final locationProvider = StateNotifierProvider<LocationNotifier, LocationState>(
   (_) => LocationNotifier(),
 );
+
+LatLng eventClusterCenter(List<EventListItem> events) {
+  if (events.isEmpty) return const LatLng(40.7580, -73.9855);
+
+  final buckets = <String, List<EventListItem>>{};
+  for (final item in events) {
+    final key =
+        '${item.venue.lat.toStringAsFixed(2)},${item.venue.lng.toStringAsFixed(2)}';
+    buckets.putIfAbsent(key, () => []).add(item);
+  }
+
+  final densest = buckets.values.reduce(
+    (best, current) => current.length > best.length ? current : best,
+  );
+
+  final lat = densest.map((e) => e.venue.lat).reduce((a, b) => a + b) / densest.length;
+  final lng = densest.map((e) => e.venue.lng).reduce((a, b) => a + b) / densest.length;
+  return LatLng(lat, lng);
+}
 
 // Human-readable label for the current location, shown in the map top bar.
 final cityNameProvider = FutureProvider.autoDispose<String>((ref) async {
@@ -189,27 +213,31 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
   final location = ref.watch(locationProvider);
   final api = ref.watch(apiClientProvider);
 
-  // Try with location first; fall back to all events if nothing nearby
-  if (location.position != null) {
+  try {
+    // Try with location first; fall back to all events if nothing nearby
+    if (location.position != null) {
+      final res = await api.get<List<dynamic>>('/events/', params: {
+        'status': 'active',
+        'limit': 50,
+        'lat': location.position!.latitude,
+        'lng': location.position!.longitude,
+        'radius_km': 20,
+      });
+      final nearby = (res.data ?? [])
+          .cast<Map<String, dynamic>>()
+          .map(EventListItem.fromJson)
+          .toList();
+      if (nearby.isNotEmpty) return nearby;
+    }
+
+    // No location or no nearby events -> fetch all
     final res = await api.get<List<dynamic>>('/events/', params: {
       'status': 'active',
       'limit': 50,
-      'lat': location.position!.latitude,
-      'lng': location.position!.longitude,
-      'radius_km': 20,
     });
-    final nearby = (res.data ?? [])
-        .cast<Map<String, dynamic>>()
-        .map(EventListItem.fromJson)
-        .toList();
-    if (nearby.isNotEmpty) return nearby;
+    final data = res.data ?? [];
+    return data.cast<Map<String, dynamic>>().map(EventListItem.fromJson).toList();
+  } catch (_) {
+    return const [];
   }
-
-  // No location or no nearby events → fetch all
-  final res = await api.get<List<dynamic>>('/events/', params: {
-    'status': 'active',
-    'limit': 50,
-  });
-  final data = res.data ?? [];
-  return data.cast<Map<String, dynamic>>().map(EventListItem.fromJson).toList();
 });

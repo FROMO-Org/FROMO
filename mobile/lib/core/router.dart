@@ -35,6 +35,12 @@ final router = GoRouter(
         GoRoute(path: '/saved', builder: (_, _) => const SavedScreen()),
         GoRoute(path: '/bookings', builder: (_, _) => const BookingsScreen()),
         GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+        GoRoute(
+          path: '/events/:eventId',
+          builder: (_, state) => EventDetailScreen(
+            eventId: state.pathParameters['eventId']!,
+          ),
+        ),
       ],
     ),
   ],

@@ -202,6 +202,30 @@ class _Content extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (event.aiSummary != null && event.aiSummary!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      const _SectionTitle('AI Summary'),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: FromoColors.teal.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: FromoColors.teal.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        child: Text(
+                          event.aiSummary!.trim(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: FromoColors.gray700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
