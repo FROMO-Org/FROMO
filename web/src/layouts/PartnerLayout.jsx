@@ -37,6 +37,8 @@ export default function PartnerLayout() {
     return () => { alive = false; };
   }, []);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   async function handleSignOut() {
     await signOut();
     navigate("/");
@@ -83,67 +85,100 @@ export default function PartnerLayout() {
     );
   }
 
-  return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* Sidebar */}
-      <aside style={{ width: 240, background: "#111", color: "#fff", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        {/* Brand */}
-        <div style={{ padding: "28px 24px 24px" }}>
-          <div style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em" }}>
-            FROMO
-          </div>
-          <div style={{ color: "#777", fontSize: 12, marginTop: 3 }}>Partner</div>
-        </div>
+  const sidebarContent = (
+    <>
+      {/* Brand */}
+      <div style={{ padding: "28px 24px 24px" }}>
+        <NavLink to="/" onClick={() => setMobileMenuOpen(false)} style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
+          FROMO
+        </NavLink>
+        <div style={{ color: "#777", fontSize: 12, marginTop: 3 }}>Partner</div>
+      </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: "0 12px" }}>
-          <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" />
-          <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" />
-          <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" />
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: "0 12px" }}>
+        <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" onClick={() => setMobileMenuOpen(false)} />
 
-          {/* Back to discover feed */}
-          <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
-            <NavLink
-              to="/"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 7,
-                color: "#555",
-                textDecoration: "none",
-                fontSize: 13,
-                fontWeight: 500,
-                transition: "color 0.12s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
-            >
-              <HomeIcon />
-              Back to Discover
-            </NavLink>
-          </div>
-        </nav>
-
-        {/* User info */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {displayName}
-          </div>
-          <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
-            {profile?.user_type
-              ? profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1) + " Account"
-              : "Account"}
-          </div>
-          <button
-            onClick={handleSignOut}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 8, padding: 0 }}
+        <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
+          <NavLink
+            to="/"
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 7, color: "#555", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
           >
-            Log out
-          </button>
+            <HomeIcon />
+            Back to Discover
+          </NavLink>
         </div>
+      </nav>
+
+      {/* User info */}
+      <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {displayName}
+        </div>
+        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
+          {profile?.user_type
+            ? profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1) + " Account"
+            : "Account"}
+        </div>
+        <button onClick={handleSignOut} style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 8, padding: 0 }}>
+          Log out
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+
+      {/* Desktop sidebar — hidden on mobile */}
+      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 240, background: "#111", color: "#fff" }}>
+        {sidebarContent}
       </aside>
+
+      {/* Mobile drawer overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={`fixed top-0 left-0 h-full z-50 flex flex-col lg:hidden transition-transform duration-200 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        style={{ width: 240, background: "#111", color: "#fff" }}
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setMobileMenuOpen(false)}
+          style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#777", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
+        >
+          ✕
+        </button>
+        {sidebarContent}
+      </aside>
+
+      {/* Right side: mobile topbar + main content */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+
+        {/* Mobile top bar — hidden on desktop */}
+        <header className="flex lg:hidden items-center justify-between px-4 py-3 flex-shrink-0" style={{ background: "#111", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <NavLink to="/" style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 20, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
+            FROMO
+          </NavLink>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}
+            aria-label="Open menu"
+          >
+            <HamburgerIcon />
+          </button>
+        </header>
 
       {/* Main */}
       <main style={{ flex: 1, overflowY: "auto", background: "var(--color-paper)" }}>
@@ -202,15 +237,27 @@ export default function PartnerLayout() {
         )}
         {(loadState === "ready" || isSettings) && <Outlet context={{ orgData }} />}
       </main>
+      </div>
     </div>
   );
 }
 
-function SideNavLink({ to, end, icon, label }) {
+function HamburgerIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+function SideNavLink({ to, end, icon, label, onClick }) {
   return (
     <NavLink
       to={to}
       end={end}
+      onClick={onClick}
       style={({ isActive }) => ({
         display: "flex",
         alignItems: "center",

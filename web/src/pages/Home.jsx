@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import EventCard from "../components/EventCard.jsx";
 import EventMap from "../components/EventMap.jsx";
-import { getDiscoverFeed, getBusynessNearby } from "../lib/api.js";
+import { getDiscoverFeed, getBusynessNearby, getSavedEvents, saveEvent, unsaveEvent } from "../lib/api.js";
 import { fetchRoute, googleMapsUrl } from "../lib/directions.js";
 import { DEFAULT_CENTER } from "../lib/config.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Home() {
+  const { user, profile } = useAuth();
+  const isStudent = !profile || profile.user_type === "student";
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("loading");
   const [selectedId, setSelectedId] = useState(null);
   const [route, setRoute] = useState(null);
   const [busynessAreas, setBusynessAreas] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [savePrompt, setSavePrompt] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -34,6 +41,74 @@ export default function Home() {
       .then((data) => setBusynessAreas(data.areas ?? []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    getSavedEvents()
+      .then((data) => {
+        const ids = (data ?? []).map((s) => s.event?.id ?? s.event_id ?? s.id).filter(Boolean);
+        setSavedIds(new Set(ids));
+      })
+      .catch(() => {});
+  }, [user]);
+
+  // Derive level from 0-1 score if the level string isn't stored
+  function scoreToLevel(score) {
+    if (score == null) return null;
+    if (score < 0.33) return "low";
+    if (score < 0.66) return "medium";
+    return "high";
+  }
+
+  // Match by proximity: find the nearest busyness area to a venue lat/lng
+  const getNearestBusynessLevel = useMemo(() => {
+    const areas = busynessAreas
+      .filter((item) => item.area?.lat != null && item.score != null)
+      .map((item) => ({
+        lat: Number(item.area.lat),
+        lng: Number(item.area.lng),
+        level: item.score.level ?? scoreToLevel(item.score.score),
+      }))
+      .filter((item) => item.level != null);
+
+    return (venueLat, venueLng) => {
+      if (!areas.length || venueLat == null || venueLng == null) return null;
+      let nearest = null;
+      let minDist = Infinity;
+      for (const area of areas) {
+        const d = Math.hypot(area.lat - Number(venueLat), area.lng - Number(venueLng));
+        if (d < minDist) { minDist = d; nearest = area.level; }
+      }
+      return nearest;
+    };
+  }, [busynessAreas]);
+
+  async function handleSave(eventId) {
+    if (!user) {
+      setSavePrompt(true);
+      setTimeout(() => setSavePrompt(false), 3000);
+      return;
+    }
+    const wasSaved = savedIds.has(eventId);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (wasSaved) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+    try {
+      if (wasSaved) await unsaveEvent(eventId);
+      else await saveEvent(eventId);
+    } catch {
+      // revert optimistic update
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(eventId);
+        else next.delete(eventId);
+        return next;
+      });
+    }
+  }
 
   const categories = useMemo(() => {
     const seen = new Set();
@@ -172,11 +247,32 @@ export default function Home() {
                 active={e.id === selectedId}
                 onSelect={setSelectedId}
                 onDirections={handleDirections}
+                saved={isStudent && savedIds.has(e.id)}
+                onSave={isStudent ? handleSave : undefined}
+                busynessLevel={getNearestBusynessLevel(e.venue?.lat, e.venue?.lng)}
               />
             ))}
           </div>
         )}
       </section>
+
+      {/* Login-to-save toast */}
+      {savePrompt && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[9999] -translate-x-1/2 rounded-[12px] border border-line bg-paper px-5 py-3 shadow-lg"
+          style={{ display: "flex", alignItems: "center", gap: 12 }}
+        >
+          <span className="text-[13.5px] font-medium text-ink">
+            Log in to save events
+          </span>
+          <button
+            onClick={() => navigate("/login")}
+            className="rounded-[8px] bg-amber px-3 py-1.5 text-[12.5px] font-semibold text-[#231a09] hover:bg-amber-press"
+          >
+            Log in
+          </button>
+        </div>
+      )}
     </main>
   );
 }

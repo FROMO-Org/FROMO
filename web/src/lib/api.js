@@ -7,6 +7,7 @@ import {
   DEFAULT_RADIUS_KM,
   FEED_LIMIT,
 } from "./config";
+import { fetchEventImage } from "./ticketmaster";
 
 export const api = axios.create({ baseURL: API_BASE_URL });
 
@@ -51,6 +52,13 @@ export const getOrganisationDashboard = (orgId) =>
 export const createOrganisation = (name) =>
   api.post("/organisations/", { name }).then((r) => r.data);
 
+// ── Saved Events ──
+export const getSavedEvents = () => api.get("/saved-events/me").then((r) => r.data);
+export const saveEvent = (event_id) =>
+  api.post("/saved-events/", { event_id }).then((r) => r.data);
+export const unsaveEvent = (event_id) =>
+  api.delete(`/saved-events/${event_id}`).then((r) => r.data);
+
 // ── Discover feed ──
 export async function getDiscoverFeed({
   lat = DEFAULT_CENTER.lat,
@@ -65,18 +73,32 @@ export async function getDiscoverFeed({
 
   const venuesById = Object.fromEntries(venues.map((v) => [v.id, v]));
 
-  return items.map(({ event, distance_km, venue }) => {
-    const full = venuesById[venue.id] ?? {};
-    return {
-      ...event,
-      distance_km,
-      venue: {
-        ...venue,
-        category: full.category ?? null,
-        address: full.address ?? null,
-        is_accessible: full.is_accessible ?? null,
-        busyness_area_id: full.busyness_area_id ?? null,
-      },
-    };
-  });
+  // Fetch images in batches of 4 to avoid Ticketmaster rate limits
+  const BATCH = 4;
+  const enriched = [];
+  for (let i = 0; i < items.length; i += BATCH) {
+    const batch = items.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map(async ({ event, distance_km, venue }) => {
+        const full = venuesById[venue.id] ?? {};
+        const category = event.category || full.category || null;
+        const image_url = event.image_url || await fetchEventImage(event.title, category) || null;
+        return {
+          ...event,
+          image_url,
+          distance_km,
+          venue: {
+            ...venue,
+            category: full.category ?? null,
+            address: full.address ?? null,
+            is_accessible: full.is_accessible ?? null,
+            busyness_area_id: full.busyness_area_id ?? null,
+          },
+        };
+      })
+    );
+    enriched.push(...results);
+  }
+
+  return enriched;
 }

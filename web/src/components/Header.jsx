@@ -28,9 +28,6 @@ export default function Header() {
         <Link to="/" className="font-medium" style={{ fontSize: "clamp(13px, 1.4vw, 16px)", color: "var(--color-ink)" }}>
           Discover
         </Link>
-        {(!user || profile?.user_type === USER_TYPE.ORGANISER) && (
-          <Link to="/partner" className="font-medium" style={{ fontSize: "clamp(13px, 1.4vw, 16px)", color: "var(--color-muted)", textDecoration: "none" }}>For organisers</Link>
-        )}
       </nav>
 
       <div className="flex items-center" style={{ gap: "clamp(8px, 1vw, 12px)" }}>
