@@ -94,7 +94,7 @@ export default function Home() {
 
       {/* Map */}
       <div className="px-10 pb-8 xl:px-16">
-        <div className="h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
+        <div className="relative h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
           <EventMap
             events={events}
             busynessAreas={busynessAreas}
@@ -102,6 +102,27 @@ export default function Home() {
             route={route}
             onSelect={setSelectedId}
           />
+          {(
+            <div style={{
+              position: "absolute", bottom: 8, left: 8, zIndex: 1000,
+              background: "var(--color-paper)", border: "1px solid var(--color-line)",
+              borderRadius: 8, padding: "6px 12px",
+              display: "flex", alignItems: "center", gap: 14,
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
+              textTransform: "uppercase", color: "var(--color-ink)",
+            }}>
+              BUSYNESS:
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2E9E6B", display: "inline-block" }} /> Low
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F5A623", display: "inline-block" }} /> Medium
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E53935", display: "inline-block" }} /> High
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -109,7 +130,7 @@ export default function Home() {
       <section aria-label="Events near you" className="px-10 pb-14 xl:px-16">
         <div className="mb-4">
           <h2 className="font-display text-[18px] font-semibold tracking-tight">
-            Happening near you 🔴
+            Discover what's happening nearby
           </h2>
         </div>
 

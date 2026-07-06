@@ -43,7 +43,7 @@ export default function Signup() {
         Never miss what's happening on your block.
       </p>
 
-      <div style={{ marginTop: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", border: "1px solid #EAE4D9", borderRadius: "16px", padding: "5px", background: "#fff" }}>
+      <div style={{ marginTop: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", border: "1px solid var(--color-line)", borderRadius: "16px", padding: "5px", background: "var(--color-surface)" }}>
         <RoleTab
           label="I'm a student"
           active={userType === USER_TYPE.STUDENT}

@@ -1,11 +1,9 @@
 # app/models/models.py
-import uuid
 from sqlalchemy import (
     Boolean, Column, ForeignKey, Index, Integer,
-    Numeric, String, Text, UniqueConstraint
+    Numeric, String, Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import text
 from sqlalchemy import DateTime
 
@@ -87,6 +85,7 @@ class Event(Base):
     ai_summary = Column(Text)
     status = Column(String, nullable=False, server_default=text("'draft'"))
     created_at = Column(DateTime, server_default=text("now()"))
+    image_url = Column(Text)
 
     __table_args__ = (
         Index(None, "status", "starts_at"),

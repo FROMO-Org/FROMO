@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
+from app.core.datetime import to_naive_utc
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_organisation_member
 from app.models import Event, Venue
@@ -75,6 +76,9 @@ def get_events(
             Event.original_price_cents > Event.price_cents,
         )
 
+    starts_after = to_naive_utc(starts_after)
+    starts_before = to_naive_utc(starts_before)
+
     if starts_after is not None:
         query = query.filter(Event.starts_at >= starts_after)
 
@@ -130,14 +134,15 @@ def create_event(
         title=body.title,
         venue_id=body.venue_id,
         host_organisation_id=body.host_organisation_id,
-        starts_at=body.starts_at,
-        ends_at=body.ends_at,
+        starts_at=to_naive_utc(body.starts_at),
+        ends_at=to_naive_utc(body.ends_at),
         original_price_cents=body.original_price_cents,
         price_cents=body.price_cents,
         capacity=body.capacity,
         spots_remaining=body.capacity,
         category=body.category,
         description=body.description,
+        image_url=body.image_url
     )
 
     session.add(event)
@@ -159,6 +164,8 @@ def update_event(
     require_organisation_member(session, user["sub"], event.host_organisation_id)
 
     for field, value in body.model_dump(exclude_none=True).items():
+        if field in {"starts_at", "ends_at"}:
+            value = to_naive_utc(value)
         setattr(event, field, value)
 
     session.commit()

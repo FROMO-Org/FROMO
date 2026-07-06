@@ -34,7 +34,8 @@ export default function Login() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "#fff",
+        background: "var(--color-paper)",
+        color: "var(--color-ink)",
         padding: "20px",
       }}
     >
@@ -136,7 +137,7 @@ export default function Login() {
 
       <p className="text-muted" style={{ fontSize: "clamp(13px, 1.5vw, 15px)", marginTop: "20px" }}>
         No account yet?{" "}
-        <Link to="/signup" className="font-semibold text-ink" style={{ textDecoration: "none", fontWeight: 700, color: "#14110E" }}>
+        <Link to="/signup" className="font-semibold text-ink" style={{ textDecoration: "none", fontWeight: 700, color: "var(--color-ink)" }}>
           Sign up
         </Link>
       </p>
@@ -155,7 +156,7 @@ function RoleTab({ label, active, onClick }) {
         cursor: "pointer",
         fontSize: "clamp(14px, 1.6vw, 16px)",
         fontWeight: active ? 700 : 400,
-        color: active ? "#14110E" : "#999",
+        color: active ? "var(--color-ink)" : "#999",
         paddingBottom: "4px",
         borderBottom: active ? "2px solid #F5A623" : "2px solid transparent",
         transition: "all 0.15s",
@@ -189,7 +190,7 @@ function UnderlineField({ label, type = "text", value, onChange, placeholder, ri
             outline: "none",
             background: "transparent",
             fontSize: "clamp(14px, 1.6vw, 16px)",
-            color: "#14110E",
+            color: "var(--color-ink)",
           }}
           {...rest}
         />

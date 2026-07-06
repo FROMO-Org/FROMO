@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { formatDistance, formatTime, formatPrice } from "../lib/format.js";
 
 function WheelIcon(props) {
@@ -31,35 +30,32 @@ export default function EventCard({ event, active, onSelect, onDirections }) {
       tabIndex={0}
       onClick={() => onSelect(event.id)}
       onKeyDown={(e) => e.key === "Enter" && onSelect(event.id)}
-      className={`cursor-pointer rounded-[14px] border bg-surface p-4 transition focus:outline-none focus-visible:ring-[3px] focus-visible:ring-amber/50 dark:shadow-[inset_3px_0_0_rgba(245,166,35,0.45)] ${
+      className={`cursor-pointer rounded-[14px] border p-4 transition focus:outline-none focus-visible:ring-[3px] focus-visible:ring-amber/50 ${
         active
           ? "border-amber ring-1 ring-amber"
-          : "border-line hover:border-amber/40 hover:shadow-[0_6px_22px_-14px_rgba(20,17,14,.4)] dark:hover:shadow-[inset_3px_0_0_rgba(245,166,35,0.8),0_6px_22px_-14px_rgba(245,166,35,0.25)]"
+          : "border-line hover:border-[#dccfb6] hover:shadow-[0_6px_22px_-14px_rgba(20,17,14,.4)]"
       }`}
+      style={{ background: "rgba(245, 166, 35, 0.06)" }}
     >
       {category && (
-        <div className="font-mono text-[10.5px] uppercase tracking-wider text-muted">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-amber">
           {category}
         </div>
       )}
-      <Link
-        to={`/events/${event.id}`}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-1 block font-display text-lg font-semibold leading-tight tracking-tight text-ink hover:underline"
-      >
+      <h3 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight">
         {event.title}
-      </Link>
+      </h3>
       <div className="text-[13.5px] text-muted">
         {v.name}
         {v.address ? ` · ${v.address}` : ""}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-xs text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-[12.5px] text-ink">
         {formatTime(event.starts_at) && (
-          <span className="text-ink">🕒 {formatTime(event.starts_at)}</span>
+          <span>🕒 {formatTime(event.starts_at)}</span>
         )}
         {formatDistance(event.distance_km) && (
-          <span>{formatDistance(event.distance_km)}</span>
+          <span className="text-muted">{formatDistance(event.distance_km)}</span>
         )}
         {formatPrice(event.price_cents) != null && (
           <span>{formatPrice(event.price_cents)}</span>

@@ -1,0 +1,13 @@
+[
+  "hour",
+  "day_of_week",
+  "month",
+  "is_weekend",
+  "is_holiday",
+  "temperature",
+  "apparent_temperature",
+  "precipitation",
+  "snowfall",
+  "lag_720h",
+  "locationid"
+]

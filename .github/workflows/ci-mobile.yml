@@ -1,26 +1,65 @@
+# Enforces pubspec.lock sync, installs Flutter dependencies, lints with flutter analyze, and runs Flutter tests.
+#Type1: Unit Tests (pure functions)
+
+# Does formatPrice(0) return "Free"?
+# Does formatPrice(500) return "$5"?
+# Does formatTime("bad-input") return null?
+
+#Type2: Component Tests
+# If I pass event.price_cents = 0, does "Free" appear on screen?
+# If I pass venue.is_accessible = true, does "Step-free entrance" appear?
+
+#Testing Library
+#Vitest + React Testing Library
+
+#What would the CI look like after adding tests?
+
+#- name: Install dependencies
+#  run: npm ci
+
+#- name: Run tests        # NEW
+#  run: npm test          # runs vitest
+
+#- name: Build app
+#  run: npm run build
+
+
 name: Mobile CI
 
 on:
   push:
     branches: ["main"]
-    paths: ["mobile/**"]
+    paths:
+      - "mobile/**"                            # Trigger when mobile code changes
+      - ".github/workflows/ci-mobile.yml"      # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main"]
+    branches: ["main"]     # Always run on PRs targeting main
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest  # Linux VM is sufficient for Flutter analyze and tests
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4   # Clone the repository into the virtual machine
 
-      - name: Set up environment
-        run: echo "TODO - Flutter setup OR React Native setup"
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2  # Official Flutter GitHub Action
+        with:
+          flutter-version: "3.x"   # Use the latest stable Flutter 3.x (matches pubspec.yaml sdk: ^3.12.1)
+          channel: stable
+          cache: true               # Cache Flutter SDK and pub packages — most impactful here as Flutter SDK is large (~500MB)
 
-      - name: Install dependencies
-        run: echo "TODO - flutter pub get OR npm install"
+      - name: Install dependencies (enforce lockfile)
+        working-directory: mobile
+        # --enforce-lockfile installs packages AND fails if pubspec.lock is out of sync with pubspec.yaml
+        # Catches cases where someone added a dependency but forgot to run flutter pub get
+        run: flutter pub get --enforce-lockfile
+
+      - name: Lint with flutter analyze
+        working-directory: mobile
+        # Uses flutter_lints (configured in analysis_options.yaml) to check for code issues
+        run: flutter analyze
 
       - name: Run tests
-        run: echo "TODO - flutter test OR npx react-native test"
-
-      - name: Build app
-        run: echo "TODO - flutter build OR react-native build"
+        working-directory: mobile
+        run: flutter test   # Runs all tests under the test/ directory

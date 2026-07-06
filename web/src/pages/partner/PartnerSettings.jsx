@@ -28,6 +28,15 @@ export default function PartnerSettings() {
   const orgName = orgData?.dashboard?.organisation?.name ?? orgData?.org?.name ?? "";
   const firstVenue = orgData?.dashboard?.listings?.[0]?.venue;
 
+  const personalName = profile?.full_name || user?.user_metadata?.full_name || user?.email || "";
+  const initials = personalName
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
+
   const [form, setForm] = useState({
     name: "",
     address: "",
@@ -96,6 +105,26 @@ export default function PartnerSettings() {
       </div>
 
       <div style={{ maxWidth: 680 }}>
+
+        {/* Personal profile row — mirrors Student Settings */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 36, paddingBottom: 32, borderBottom: "1px solid var(--color-line)" }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: "50%",
+            background: "#F5A623", display: "flex", alignItems: "center",
+            justifyContent: "center", flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 22, fontWeight: 700, color: "#231a09", fontFamily: '"Bricolage Grotesque", Inter, system-ui' }}>
+              {initials}
+            </span>
+          </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-ink)" }}>
+              {personalName}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>Partner Account</div>
+          </div>
+        </div>
+
         {/* Venue Profile */}
         <form onSubmit={handleSave}>
           <SectionLabel>Venue Profile</SectionLabel>

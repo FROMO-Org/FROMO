@@ -1,21 +1,22 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-const ThemeCtx = createContext(null);
-export const useTheme = () => useContext(ThemeCtx);
+const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(() => {
-    try { return localStorage.getItem("fromo_theme") === "dark"; } catch { return false; }
-  });
+  const [isDark, setIsDark] = useState(() => localStorage.getItem("fromo_theme") === "dark");
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
     localStorage.setItem("fromo_theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   return (
-    <ThemeCtx.Provider value={{ isDark, toggleTheme: () => setIsDark((d) => !d) }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme: () => setIsDark((v) => !v) }}>
       {children}
-    </ThemeCtx.Provider>
+    </ThemeContext.Provider>
   );
+}
+
+export function useTheme() {
+  return useContext(ThemeContext);
 }

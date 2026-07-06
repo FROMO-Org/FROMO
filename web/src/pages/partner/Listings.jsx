@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import { formatPrice } from "../../lib/format";
+import CreateListingModal from "./CreateListingModal";
 
 function formatEventDate(iso) {
   if (!iso) return "—";
@@ -21,7 +22,9 @@ const TABS = [
 
 export default function Listings() {
   const { orgData } = useOutletContext();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
+  const [showModal, setShowModal] = useState(false);
 
   const summary = orgData?.dashboard?.summary ?? {};
   const listings = orgData?.dashboard?.listings ?? [];
@@ -38,7 +41,7 @@ export default function Listings() {
   } = summary;
 
   return (
-    <div style={{ background: "#fff", minHeight: "100%", padding: "40px 48px" }}>
+    <div style={{ background: "var(--color-paper)", minHeight: "100%", padding: "40px 48px" }}>
       {/* Page header */}
       <div
         style={{
@@ -47,7 +50,7 @@ export default function Listings() {
           justifyContent: "space-between",
           marginBottom: 32,
           paddingBottom: 24,
-          borderBottom: "1px solid #e8e2da",
+          borderBottom: "1px solid var(--color-line)",
         }}
       >
         <h1
@@ -57,11 +60,13 @@ export default function Listings() {
             fontFamily: '"Bricolage Grotesque", Inter, system-ui',
             margin: 0,
             letterSpacing: "-0.02em",
+            color: "#F5A623",
           }}
         >
           My Listings
         </h1>
         <button
+          onClick={() => setShowModal(true)}
           style={{
             background: "#111",
             color: "#fff",
@@ -91,7 +96,7 @@ export default function Listings() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 28, borderBottom: "1px solid #e8e2da", marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 28, borderBottom: "1px solid var(--color-line)", marginBottom: 24 }}>
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -104,7 +109,7 @@ export default function Listings() {
               padding: "0 0 12px",
               fontSize: 14,
               fontWeight: activeTab === key ? 600 : 500,
-              color: activeTab === key ? "#111" : "#888",
+              color: activeTab === key ? "var(--color-ink)" : "#888",
               cursor: "pointer",
               transition: "color 0.12s",
             }}
@@ -113,6 +118,17 @@ export default function Listings() {
           </button>
         ))}
       </div>
+
+      {showModal && orgData?.org?.id && (
+        <CreateListingModal
+          orgId={orgData.org.id}
+          onClose={() => setShowModal(false)}
+          onCreated={() => {
+            setShowModal(false);
+            navigate(0); // reload dashboard data
+          }}
+        />
+      )}
 
       {/* Table */}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -129,7 +145,7 @@ export default function Listings() {
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   padding: "0 16px 14px 0",
-                  borderBottom: "1px solid #e8e2da",
+                  borderBottom: "1px solid var(--color-line)",
                 }}
               >
                 {h}
@@ -146,8 +162,8 @@ export default function Listings() {
             </tr>
           ) : (
             filtered.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #f0ebe3" }}>
-                <td style={{ padding: "16px 16px 16px 0", fontWeight: 600, fontSize: 14, color: "#111" }}>
+              <tr key={l.id} style={{ borderBottom: "1px solid var(--color-line)" }}>
+                <td style={{ padding: "16px 16px 16px 0", fontWeight: 600, fontSize: 14, color: "var(--color-ink)" }}>
                   {l.title}
                 </td>
                 <td style={{ padding: "16px 16px 16px 0", color: "#555", fontSize: 13.5 }}>
@@ -180,25 +196,25 @@ function SummaryCard({ label, value }) {
   return (
     <div
       style={{
-        background: "#f5f0e8",
+        background: "rgba(245, 166, 35, 0.08)",
         borderLeft: "3px solid #F5A623",
         borderRadius: 10,
-        padding: "24px 28px",
+        padding: "20px 24px",
       }}
     >
+      <div style={{ fontSize: 12, color: "#888", marginBottom: 8, fontWeight: 500 }}>{label}</div>
       <div
         style={{
-          fontSize: 38,
+          fontSize: 34,
           fontWeight: 800,
           fontFamily: '"Bricolage Grotesque", Inter, system-ui',
-          color: "#111",
+          color: "var(--color-ink)",
           letterSpacing: "-0.02em",
           lineHeight: 1,
         }}
       >
         {value}
       </div>
-      <div style={{ fontSize: 13, color: "#888", marginTop: 8 }}>{label}</div>
     </div>
   );
 }

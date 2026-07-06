@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getMyOrganisations, getOrganisationDashboard } from "../lib/api";
+import { getMyOrganisations, getOrganisationDashboard, createOrganisation, updateMyProfile } from "../lib/api";
+import { USER_TYPE } from "../lib/config";
 
 export default function PartnerLayout() {
-  const { signOut, user, profile } = useAuth();
+  const { signOut, user, profile, reloadProfile } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isSettings = pathname === "/partner/settings";
   const [orgData, setOrgData] = useState(null);
   const [loadState, setLoadState] = useState("loading");
+  const [orgName, setOrgName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -16,10 +22,15 @@ export default function PartnerLayout() {
         if (!alive) return;
         if (!orgs.length) { setLoadState("no-org"); return; }
         const org = orgs[0].organisation;
-        return getOrganisationDashboard(org.id).then((dashboard) => {
+        return getOrganisationDashboard(org.id).then(async (dashboard) => {
           if (!alive) return;
           setOrgData({ org, dashboard });
           setLoadState("ready");
+          // Fix stale user_type — if they have an org they ARE an organiser
+          if (profile?.user_type !== USER_TYPE.ORGANISER) {
+            await updateMyProfile({ user_type: USER_TYPE.ORGANISER });
+          }
+          reloadProfile();
         });
       })
       .catch(() => alive && setLoadState("error"));
@@ -31,15 +42,46 @@ export default function PartnerLayout() {
     navigate("/");
   }
 
-  const orgName = orgData?.dashboard?.organisation?.name
+  async function handleCreateOrg(e) {
+    e.preventDefault();
+    if (!orgName.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const { organisation } = await createOrganisation(orgName.trim());
+      const dashboard = await getOrganisationDashboard(organisation.id);
+      setOrgData({ org: organisation, dashboard });
+      setLoadState("ready");
+      await reloadProfile(); // updates user_type → "organiser" so Dashboard button appears
+    } catch (err) {
+      setCreateError(err?.response?.data?.detail ?? "Couldn't create organisation.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const orgDisplayName = orgData?.dashboard?.organisation?.name
     ?? orgData?.org?.name
     ?? null;
 
-  const displayName = orgName
+  const displayName = orgDisplayName
     ?? profile?.full_name
     ?? user?.user_metadata?.full_name
     ?? user?.email
     ?? "Partner";
+
+  // Gate: only confirmed organisers see the dashboard layout.
+  // Everyone else (null profile, student, admin) is blocked here.
+  if (profile?.user_type !== USER_TYPE.ORGANISER) {
+    // org check finished with no org → definitely not an organiser, go home
+    if (loadState === "no-org") return <Navigate to="/" replace />;
+    // still loading (or org found but user_type stale — reloadProfile in flight) → spinner
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -58,16 +100,45 @@ export default function PartnerLayout() {
           <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" />
           <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" />
           <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" />
+
+          {/* Back to discover feed */}
+          <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
+            <NavLink
+              to="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 7,
+                color: "#555",
+                textDecoration: "none",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "color 0.12s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
+            >
+              <HomeIcon />
+              Back to Discover
+            </NavLink>
+          </div>
         </nav>
 
-        {/* Venue name */}
+        {/* User info */}
         <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ fontSize: 12, color: "#666", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {displayName}
+          </div>
+          <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
+            {profile?.user_type
+              ? profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1) + " Account"
+              : "Account"}
           </div>
           <button
             onClick={handleSignOut}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 6, padding: 0 }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 8, padding: 0 }}
           >
             Log out
           </button>
@@ -76,28 +147,60 @@ export default function PartnerLayout() {
 
       {/* Main */}
       <main style={{ flex: 1, overflowY: "auto", background: "var(--color-paper)" }}>
-        {loadState === "loading" && (
+        {loadState === "loading" && !isSettings && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontSize: 14 }}>
             Loading…
           </div>
         )}
-        {loadState === "no-org" && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, textAlign: "center", padding: 48 }}>
-            <div style={{ fontSize: 32, marginBottom: 4 }}>🏢</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#111", fontFamily: '"Bricolage Grotesque", Inter, system-ui' }}>
-              No organisation linked yet
+        {loadState === "no-org" && !isSettings && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 16, textAlign: "center", padding: 48 }}>
+            <div style={{ fontSize: 36, marginBottom: 4 }}>🏢</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "var(--color-ink)", fontFamily: '"Bricolage Grotesque", Inter, system-ui', letterSpacing: "-0.02em" }}>
+              Set up your organisation
             </div>
             <div style={{ fontSize: 14, color: "#888", maxWidth: 360, lineHeight: 1.6 }}>
-              Your account isn't connected to a venue or organisation. Ask your team admin to add you, or create one to get started.
+              Create your organisation to start listing events and tracking bookings.
             </div>
+
+            <form
+              onSubmit={handleCreateOrg}
+              style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 360, marginTop: 8 }}
+            >
+              <input
+                required
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Organisation name (e.g. Blue Note Jazz Club)"
+                style={{
+                  border: "1px solid #e0dbd2", borderRadius: 10, padding: "12px 16px",
+                  fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box",
+                  fontFamily: "Inter, system-ui, sans-serif", background: "var(--color-surface)",
+                  color: "var(--color-ink)",
+                }}
+              />
+              {createError && (
+                <div style={{ fontSize: 13, color: "#E53935" }}>{createError}</div>
+              )}
+              <button
+                type="submit"
+                disabled={creating}
+                style={{
+                  background: creating ? "#888" : "#111", color: "#fff", border: "none",
+                  borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700,
+                  cursor: creating ? "wait" : "pointer", fontFamily: "Inter, system-ui, sans-serif",
+                }}
+              >
+                {creating ? "Creating…" : "Create Organisation"}
+              </button>
+            </form>
           </div>
         )}
-        {loadState === "error" && (
+        {loadState === "error" && !isSettings && (
           <div style={{ padding: 48, color: "#888", fontSize: 14 }}>
             Couldn't load dashboard — is the backend running?
           </div>
         )}
-        {loadState === "ready" && <Outlet context={{ orgData }} />}
+        {(loadState === "ready" || isSettings) && <Outlet context={{ orgData }} />}
       </main>
     </div>
   );
@@ -149,6 +252,15 @@ function BarIcon() {
       <rect x="0" y="9" width="3" height="6" rx="0.5" />
       <rect x="6" y="5" width="3" height="10" rx="0.5" />
       <rect x="12" y="1" width="3" height="14" rx="0.5" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
     </svg>
   );
 }

@@ -37,7 +37,7 @@ export default function Analytics() {
   }, [listings]);
 
   return (
-    <div style={{ background: "#fff", minHeight: "100%", padding: "40px 48px" }}>
+    <div style={{ background: "var(--color-paper)", minHeight: "100%", padding: "40px 48px" }}>
       {/* Header */}
       <div
         style={{
@@ -46,7 +46,7 @@ export default function Analytics() {
           justifyContent: "space-between",
           marginBottom: 32,
           paddingBottom: 24,
-          borderBottom: "1px solid #e8e2da",
+          borderBottom: "1px solid var(--color-line)",
         }}
       >
         <h1
@@ -56,6 +56,7 @@ export default function Analytics() {
             fontFamily: '"Bricolage Grotesque", Inter, system-ui',
             margin: 0,
             letterSpacing: "-0.02em",
+            color: "#F5A623",
           }}
         >
           Analytics
@@ -67,11 +68,11 @@ export default function Analytics() {
 
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
-        <MiniCard label="Total Bookings" value={bookings.toLocaleString()} sub="This month" />
+        <MiniCard label="Total Bookings" value={bookings.toLocaleString()} sub="↑ vs last month" />
         <MiniCard
           label="Revenue"
           value={`$${(rev / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}`}
-          sub="This week"
+          sub="↑ vs last week"
         />
         <MiniCard label="Active Listings" value={active.toLocaleString()} sub="Right now" />
         <MiniCard label="Avg. Ticket Price" value={formatPrice(avgPriceCents) ?? "—"} sub="Across listings" />
@@ -79,17 +80,15 @@ export default function Analytics() {
 
       {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 28 }}>
-        {/* Line chart */}
-        <div style={{ background: "#f5f0e8", borderRadius: 12, padding: "24px 28px" }}>
-          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#111" }}>
+        <div style={{ background: "var(--color-surface)", borderRadius: 12, padding: "24px 28px" }}>
+          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "var(--color-ink)" }}>
             Bookings Over Time
           </h3>
           <LineChart data={chartData} />
         </div>
 
-        {/* Top listings */}
-        <div style={{ background: "#f5f0e8", borderRadius: 12, padding: "24px 28px" }}>
-          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#111" }}>
+        <div style={{ background: "var(--color-surface)", borderRadius: 12, padding: "24px 28px" }}>
+          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "var(--color-ink)" }}>
             Top Listings
           </h3>
           {topListings.length === 0 ? (
@@ -99,7 +98,7 @@ export default function Analytics() {
               {topListings.map((l) => (
                 <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{l.title}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)" }}>{l.title}</div>
                     <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
                       {l.bookings_count ?? 0} tickets sold
                     </div>
@@ -115,8 +114,8 @@ export default function Analytics() {
       </div>
 
       {/* Event Performance table */}
-      <div style={{ background: "#f5f0e8", borderRadius: 12, padding: "24px 28px" }}>
-        <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#111" }}>
+      <div style={{ background: "var(--color-surface)", borderRadius: 12, padding: "24px 28px" }}>
+        <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "var(--color-ink)" }}>
           Event Performance
         </h3>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -133,7 +132,7 @@ export default function Analytics() {
                     letterSpacing: "0.07em",
                     textTransform: "uppercase",
                     paddingBottom: 12,
-                    borderBottom: "1px solid #ddd8d0",
+                    borderBottom: "1px solid var(--color-line)",
                   }}
                 >
                   {h}
@@ -142,25 +141,33 @@ export default function Analytics() {
             </tr>
           </thead>
           <tbody>
-            {listings.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #e8e2d8" }}>
-                <td style={{ padding: "14px 0", fontWeight: 600, fontSize: 14, color: "#111" }}>
-                  {l.title}
-                </td>
-                <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "#333" }}>
-                  {l.bookings_count ?? 0}
-                </td>
-                <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "#333" }}>
-                  {formatPrice(l.revenue_cents) ?? "—"}
-                </td>
-                <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "#333" }}>
-                  {l.sold ?? 0}/{l.capacity ?? "?"}
-                </td>
-                <td style={{ padding: "14px 0" }}>
-                  <PerformanceBadge status={l.display_status} />
+            {listings.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ padding: "28px 0", color: "#888", fontSize: 14 }}>
+                  No listings yet.
                 </td>
               </tr>
-            ))}
+            ) : (
+              listings.map((l) => (
+                <tr key={l.id} style={{ borderBottom: "1px solid var(--color-line)" }}>
+                  <td style={{ padding: "14px 0", fontWeight: 600, fontSize: 14, color: "var(--color-ink)" }}>
+                    {l.title}
+                  </td>
+                  <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "var(--color-ink)" }}>
+                    {l.bookings_count ?? 0}
+                  </td>
+                  <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "var(--color-ink)" }}>
+                    {formatPrice(l.revenue_cents) ?? "—"}
+                  </td>
+                  <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "var(--color-ink)" }}>
+                    {l.sold ?? 0}/{l.capacity ?? "?"}
+                  </td>
+                  <td style={{ padding: "14px 0" }}>
+                    <PerformanceBadge status={l.display_status} />
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -170,12 +177,12 @@ export default function Analytics() {
 
 function MiniCard({ label, value, sub }) {
   return (
-    <div style={{ background: "#f5f0e8", borderLeft: "3px solid #F5A623", borderRadius: 10, padding: "20px 22px" }}>
-      <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', color: "#111", letterSpacing: "-0.02em", lineHeight: 1 }}>
+    <div style={{ background: "rgba(245, 166, 35, 0.08)", borderLeft: "3px solid #F5A623", borderRadius: 10, padding: "20px 22px" }}>
+      <div style={{ fontSize: 12, color: "#888", marginBottom: 8, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 34, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', color: "var(--color-ink)", letterSpacing: "-0.02em", lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 11, color: "#aaa", marginTop: 6 }}>{sub}</div>
+      <div style={{ fontSize: 12, color: "#F5A623", marginTop: 8, fontWeight: 600 }}>{sub}</div>
     </div>
   );
 }
@@ -196,11 +203,12 @@ function PerformanceBadge({ status }) {
 }
 
 function LineChart({ data }) {
-  const W = 460, H = 140;
-  const PAD = { t: 10, r: 10, b: 28, l: 28 };
+  const W = 460, H = 160;
+  const PAD = { t: 10, r: 10, b: 28, l: 36 };
   const innerW = W - PAD.l - PAD.r;
   const innerH = H - PAD.t - PAD.b;
   const maxY = Math.max(...data.map((d) => d.value), 1);
+  const ticks = 4;
   const xOf = (i) => PAD.l + (i / (data.length - 1)) * innerW;
   const yOf = (v) => PAD.t + innerH - (v / maxY) * innerH;
   const pts = data.map((d, i) => `${xOf(i)},${yOf(d.value)}`).join(" ");
@@ -208,22 +216,26 @@ function LineChart({ data }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
-      {/* Fill */}
+      {Array.from({ length: ticks + 1 }, (_, i) => {
+        const v = Math.round((maxY / ticks) * i);
+        const y = yOf(v);
+        return (
+          <g key={i}>
+            <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="var(--color-line)" strokeWidth="1" />
+            <text x={PAD.l - 6} y={y + 4} textAnchor="end" fontSize="9" fill="#888" fontFamily="Inter, system-ui">{v}</text>
+          </g>
+        );
+      })}
       <polygon points={fillPts} fill="#F5A623" fillOpacity="0.12" />
-      {/* Line */}
       <polyline points={pts} fill="none" stroke="#F5A623" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Dots */}
       {data.map((d, i) => (
         <circle key={i} cx={xOf(i)} cy={yOf(d.value)} r="4" fill="#F5A623" />
       ))}
-      {/* X-axis labels */}
       {data.map((d, i) => (
         <text key={i} x={xOf(i)} y={H - 4} textAnchor="middle" fontSize="10" fill="#999" fontFamily="Inter, system-ui">
           {d.label}
         </text>
       ))}
-      {/* Y-axis zero line */}
-      <line x1={PAD.l} y1={PAD.t + innerH} x2={W - PAD.r} y2={PAD.t + innerH} stroke="#ddd" strokeWidth="1" />
     </svg>
   );
 }
