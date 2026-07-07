@@ -1,31 +1,43 @@
+# Installs Python deps, validates the committed ML artifacts (model.txt, norm_table.csv,
+# feature_cols.json) via process.py --dry-run, then runs an end-to-end smoke test against
+# a small fixture CSV. Does NOT run a full production prediction — the real features CSV
+# is ~63MB and gitignored, so it never exists in CI.
+
 name: Data & ML CI
 
 on:
   push:
     branches: ["main"]
-    paths: ["data/**"]
+    paths:
+      - "data/**"                          # Trigger when data/ML code or artifacts change
+      - ".github/workflows/ci-data.yml"    # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main"]
+    branches: ["main", "busyness_model"]   # Run on PRs targeting main or busyness_model
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4   # Clone the repository into the virtual machine
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: data/requirements.txt
 
       - name: Install dependencies
-        run: echo "TODO - pip install -r data/requirements.txt"
+        run: pip install -r data/requirements.txt
 
-      - name: Validate data processing scripts
-        run: echo "TODO - python data/process.py --dry-run"
+      - name: Validate ML artifacts (dry run)
+        # Loads model.txt as a LightGBM booster, checks norm_table.csv has the expected
+        # columns, and validates feature_cols.json — all without the large features CSV.
+        run: python data/process.py --dry-run
 
-      - name: Run ML model tests
-        run: echo "TODO - pytest data/tests/"
-
-      - name: Check data schema
-        run: echo "TODO - python data/validate_schema.py"
+      - name: Run smoke test
+        # Runs the real predict() path against a 6-row fixture (data/tests/fixtures/) and
+        # checks the output schema and value ranges — catches join/feature-ordering bugs
+        # that --dry-run can't see.
+        run: python -m pytest data/tests/ -v
