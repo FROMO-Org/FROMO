@@ -86,10 +86,17 @@ class Event(Base):
     status = Column(String, nullable=False, server_default=text("'draft'"))
     created_at = Column(DateTime, server_default=text("now()"))
     image_url = Column(Text)
+    external_event_id = Column(String)
 
     __table_args__ = (
         Index(None, "status", "starts_at"),
         Index(None, "venue_id"),
+        Index(
+            "events_external_event_id_idx",
+            "external_event_id",
+            unique=True,
+            postgresql_where=text("external_event_id is not null"),
+        ),
     )
 
 
@@ -145,3 +152,26 @@ class Feedback(Base):
     rating = Column(Integer)
     comment = Column(Text)
     created_at = Column(DateTime, server_default=text("now()"))
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
+    quantity = Column(Integer, nullable=False, server_default=text("1"))
+    amount_cents = Column(Integer, nullable=False)
+    currency = Column(String, nullable=False, server_default=text("'eur'"))
+    status = Column(String, nullable=False, server_default=text("'pending'"))
+    stripe_checkout_session_id = Column(String, unique=True)
+    stripe_payment_intent_id = Column(String, unique=True)
+    booking_id = Column(UUID(as_uuid=True), ForeignKey("bookings.id"), unique=True)
+    created_at = Column(DateTime, server_default=text("now()"))
+    updated_at = Column(DateTime, server_default=text("now()"))
+
+    __table_args__ = (
+        Index("payments_user_id_idx", "user_id"),
+        Index("payments_event_id_idx", "event_id"),
+        Index("payments_status_idx", "status"),
+    )
