@@ -27,16 +27,15 @@ export function AuthProvider({ children }) {
 
   async function loadProfile() {
     try {
-      setProfile(await getMyProfile());
+      const p = await getMyProfile();
+      setProfile(p);
+      return p;
     } catch {
-      // 404 → the user has a Supabase account but no profile row yet.
-      // The UI can route them to a "finish your profile" step.
       setProfile(null);
+      return null;
     }
   }
 
-  // signUp → create the profile row (keyed to the Supabase user id) → set role.
-  // POST /profiles/me only takes full_name, so user_type goes in a follow-up PATCH.
   async function signUp({ email, password, fullName, userType }) {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -46,14 +45,18 @@ export function AuthProvider({ children }) {
     if (error) throw error;
 
     if (data.session) {
+      // Step 1: create profile row — 409 means it already exists, that's fine
       try {
         await createMyProfile(fullName);
+      } catch (err) {
+        if (err?.response?.status !== 409) console.error("createMyProfile:", err);
+      }
+      // Step 2: set role — always runs regardless of step 1 result
+      try {
         const updated = await updateMyProfile({ user_type: userType });
         setProfile(updated);
       } catch {
-        // Backend may be temporarily unavailable; Supabase auth succeeded and
-        // full_name is stored in user_metadata as fallback.
-        setProfile(null);
+        try { setProfile(await getMyProfile()); } catch { setProfile(null); }
       }
     }
     return data;
@@ -65,8 +68,8 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw error;
-    await loadProfile();
-    return data;
+    const p = await loadProfile();
+    return { ...data, profile: p };
   }
 
   async function signOut() {

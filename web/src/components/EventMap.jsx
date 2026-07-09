@@ -82,7 +82,7 @@ export default function EventMap({ events, busynessAreas = [], focus, route, onS
         const a = item.area ?? item;
         if (a.lat == null || a.lng == null) return null;
         if (!item.score?.level) return null; // no prediction yet — don't draw
-        const levelColor = { low: "#2E9E6B", medium: "#F5A623", high: "#E53935" };
+        const levelColor = { "not busy": "#2E9E6B", "as usual": "#F5A623", "busier": "#E53935" };
         const color = levelColor[item.score.level] ?? "#F5A623";
         return (
           <Circle

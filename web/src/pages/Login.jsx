@@ -5,7 +5,6 @@ import { useAuth } from "../context/AuthContext.jsx";
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,8 +16,8 @@ export default function Login() {
     setError(null);
     setBusy(true);
     try {
-      await signIn({ email, password });
-      navigate(role === "partner" ? "/partner" : "/");
+      const result = await signIn({ email, password });
+      navigate(result.profile?.user_type === "organiser" ? "/partner" : "/");
     } catch (err) {
       setError(err?.message || "Couldn't sign you in. Check your details.");
     } finally {
@@ -49,20 +48,6 @@ export default function Login() {
       <p className="text-muted" style={{ fontSize: "clamp(13px, 1.6vw, 16px)", marginBottom: "30px" }}>
         Discover last-minute activities in Manhattan
       </p>
-
-      {/* Role tabs */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          marginBottom: "25px",
-        }}
-      >
-        <RoleTab label="Student" active={role === "student"} onClick={() => setRole("student")} />
-        <span className="text-muted" style={{ fontSize: "14px" }}>·</span>
-        <RoleTab label="Partner" active={role === "partner"} onClick={() => setRole("partner")} />
-      </div>
 
       {/* Form */}
       <form
@@ -142,28 +127,6 @@ export default function Login() {
         </Link>
       </p>
     </div>
-  );
-}
-
-function RoleTab({ label, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        fontSize: "clamp(14px, 1.6vw, 16px)",
-        fontWeight: active ? 700 : 400,
-        color: active ? "var(--color-ink)" : "#999",
-        paddingBottom: "4px",
-        borderBottom: active ? "2px solid #F5A623" : "2px solid transparent",
-        transition: "all 0.15s",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 

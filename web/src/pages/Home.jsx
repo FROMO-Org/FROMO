@@ -55,9 +55,9 @@ export default function Home() {
   // Derive level from 0-1 score if the level string isn't stored
   function scoreToLevel(score) {
     if (score == null) return null;
-    if (score < 0.33) return "low";
-    if (score < 0.66) return "medium";
-    return "high";
+    if (score < 0.33) return "not busy";
+    if (score < 0.66) return "as usual";
+    return "busier";
   }
 
   // Match by proximity: find the nearest busyness area to a venue lat/lng
@@ -188,13 +188,13 @@ export default function Home() {
             }}>
               BUSYNESS:
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2E9E6B", display: "inline-block" }} /> Low
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2E9E6B", display: "inline-block" }} /> Not Busy
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F5A623", display: "inline-block" }} /> Medium
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F5A623", display: "inline-block" }} /> As Usual
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E53935", display: "inline-block" }} /> High
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E53935", display: "inline-block" }} /> Busier
               </span>
             </div>
           )}

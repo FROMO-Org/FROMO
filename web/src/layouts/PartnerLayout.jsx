@@ -5,7 +5,7 @@ import { getMyOrganisations, getOrganisationDashboard, createOrganisation, updat
 import { USER_TYPE } from "../lib/config";
 
 export default function PartnerLayout() {
-  const { signOut, user, profile, reloadProfile } = useAuth();
+  const { signOut, user, profile, reloadProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isSettings = pathname === "/partner/settings";
@@ -71,6 +71,9 @@ export default function PartnerLayout() {
     ?? user?.user_metadata?.full_name
     ?? user?.email
     ?? "Partner";
+
+  // Not logged in → send to login
+  if (!authLoading && !user) return <Navigate to="/login" replace />;
 
   // Gate: only confirmed organisers see the dashboard layout.
   // Everyone else (null profile, student, admin) is blocked here.

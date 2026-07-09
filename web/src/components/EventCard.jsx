@@ -1,9 +1,9 @@
 import { formatDistance, formatTime, formatPrice } from "../lib/format.js";
 
 const BUSYNESS_STYLE = {
-  low:    { color: "#2E9E6B", bg: "rgba(46,158,107,0.12)" },
-  medium: { color: "#F5A623", bg: "rgba(245,166,35,0.15)" },
-  high:   { color: "#E53935", bg: "rgba(229,57,53,0.12)" },
+  "not busy": { color: "#2E9E6B", bg: "rgba(46,158,107,0.12)", label: "Not Busy" },
+  "as usual": { color: "#F5A623", bg: "rgba(245,166,35,0.15)", label: "As Usual" },
+  "busier":   { color: "#E53935", bg: "rgba(229,57,53,0.12)", label: "Busier" },
 };
 
 function WheelIcon(props) {
@@ -98,7 +98,7 @@ export default function EventCard({ event, active, onSelect, onDirections, saved
               className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider"
               style={{ color: busy.color, background: busy.bg }}
             >
-              {busynessLevel}
+              {busy.label}
             </span>
           )}
         </div>
