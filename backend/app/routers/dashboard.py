@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.datetime import to_naive_utc, utc_now_naive
 from app.database import get_session
 from app.middleware.auth import get_current_user, require_organisation_member
 from app.models import Booking, Event, Organisation, Venue
@@ -37,7 +38,8 @@ def event_display_status(event: Event, sold: int, now: datetime) -> str:
         return "cancelled"
     if event.status == "completed":
         return "expired"
-    if event.ends_at is not None and event.ends_at <= now:
+    ends_at = to_naive_utc(event.ends_at)
+    if ends_at is not None and ends_at <= now:
         return "expired"
     if event.spots_remaining == 0:
         return "sold_out"
@@ -66,7 +68,7 @@ def get_organisation_dashboard(
 
     require_organisation_member(session, user["sub"], organisation_id)
 
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     month_start = start_of_month(now)
     week_start = start_of_week(now)
 

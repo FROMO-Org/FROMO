@@ -65,6 +65,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
       capacity: form.capacity ? parseInt(form.capacity, 10) : null,
       description: form.description.trim() || null,
       category: form.category || null,
+      status:"active",
     };
 
     setSaving(true);
