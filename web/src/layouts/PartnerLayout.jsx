@@ -9,6 +9,7 @@ export default function PartnerLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isSettings = pathname === "/partner/settings";
+  const isBookings = pathname === "/partner/bookings";
   const [orgData, setOrgData] = useState(null);
   const [loadState, setLoadState] = useState("loading");
   const [orgName, setOrgName] = useState("");
@@ -72,15 +73,11 @@ export default function PartnerLayout() {
     ?? user?.email
     ?? "Partner";
 
-  // Not logged in → send to login
   if (!authLoading && !user) return <Navigate to="/login" replace />;
 
-  // Gate: only confirmed organisers see the dashboard layout.
-  // Everyone else (null profile, student, admin) is blocked here.
   if (profile?.user_type !== USER_TYPE.ORGANISER) {
-    // org check finished with no org → definitely not an organiser, go home
     if (loadState === "no-org") return <Navigate to="/" replace />;
-    // still loading (or org found but user_type stale — reloadProfile in flight) → spinner
+    // still loading or user_type stale while reloadProfile is in flight
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontSize: 14 }}>
         Loading…
@@ -90,7 +87,6 @@ export default function PartnerLayout() {
 
   const sidebarContent = (
     <>
-      {/* Brand */}
       <div style={{ padding: "28px 24px 24px" }}>
         <NavLink to="/" onClick={() => setMobileMenuOpen(false)} style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
           FROMO
@@ -98,10 +94,10 @@ export default function PartnerLayout() {
         <div style={{ color: "#777", fontSize: 12, marginTop: 3 }}>Partner</div>
       </div>
 
-      {/* Nav */}
       <nav style={{ flex: 1, padding: "0 12px" }}>
         <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" onClick={() => setMobileMenuOpen(false)} />
         <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/bookings" icon={<TicketIcon />} label="My Bookings" onClick={() => setMobileMenuOpen(false)} />
         <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" onClick={() => setMobileMenuOpen(false)} />
 
         <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
@@ -117,7 +113,6 @@ export default function PartnerLayout() {
         </div>
       </nav>
 
-      {/* User info */}
       <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
         <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {displayName}
@@ -137,12 +132,10 @@ export default function PartnerLayout() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
-      {/* Desktop sidebar — hidden on mobile */}
       <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 240, background: "#111", color: "#fff" }}>
         {sidebarContent}
       </aside>
 
-      {/* Mobile drawer overlay */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden"
@@ -151,12 +144,10 @@ export default function PartnerLayout() {
         />
       )}
 
-      {/* Mobile drawer */}
       <aside
         className={`fixed top-0 left-0 h-full z-50 flex flex-col lg:hidden transition-transform duration-200 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ width: 240, background: "#111", color: "#fff" }}
       >
-        {/* Close button */}
         <button
           onClick={() => setMobileMenuOpen(false)}
           style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#777", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
@@ -166,10 +157,8 @@ export default function PartnerLayout() {
         {sidebarContent}
       </aside>
 
-      {/* Right side: mobile topbar + main content */}
       <div className="flex flex-col flex-1 overflow-hidden">
 
-        {/* Mobile top bar — hidden on desktop */}
         <header className="flex lg:hidden items-center justify-between px-4 py-3 flex-shrink-0" style={{ background: "#111", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <NavLink to="/" style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 20, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
             FROMO
@@ -183,7 +172,6 @@ export default function PartnerLayout() {
           </button>
         </header>
 
-      {/* Main */}
       <main style={{ flex: 1, overflowY: "auto", background: "var(--color-paper)" }}>
         {loadState === "loading" && !isSettings && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontSize: 14 }}>
@@ -238,7 +226,7 @@ export default function PartnerLayout() {
             Couldn't load dashboard — is the backend running?
           </div>
         )}
-        {(loadState === "ready" || isSettings) && <Outlet context={{ orgData }} />}
+        {(loadState === "ready" || isSettings || isBookings) && <Outlet context={{ orgData }} />}
       </main>
       </div>
     </div>
@@ -311,6 +299,14 @@ function HomeIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function TicketIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
     </svg>
   );
 }

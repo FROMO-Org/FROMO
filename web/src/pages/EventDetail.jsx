@@ -1,368 +1,318 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { getEvent } from "../lib/api";
-import { formatTime, formatPrice } from "../lib/format";
-import { googleMapsUrl } from "../lib/directions";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { getEvent, getVenue, createBooking, cancelBooking, getMyBookings } from "../lib/api.js";
+import { fetchEventImage } from "../lib/ticketmaster.js";
+import { googleMapsUrl } from "../lib/directions.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { formatPrice } from "../lib/format.js";
 
-const HERO_GRADIENTS = {
-  music: "linear-gradient(160deg, #1a110a 0%, #2d1a08 55%, #0f0905 100%)",
-  arts: "linear-gradient(160deg, #0f0a1a 0%, #1a0f2d 55%, #050a1a 100%)",
-  food: "linear-gradient(160deg, #1a0e00 0%, #2d1800 55%, #110900 100%)",
-  sports: "linear-gradient(160deg, #061a10 0%, #0a2d1a 55%, #031109 100%)",
-  default: "linear-gradient(160deg, #111014 0%, #1e1a12 55%, #0a0806 100%)",
-};
-
-function heroGradient(category) {
-  const key = (category ?? "").toLowerCase();
-  return HERO_GRADIENTS[key] ?? HERO_GRADIENTS.default;
+function formatEventDate(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short", month: "short", day: "numeric", year: "numeric",
+  });
 }
 
-function countdown(iso) {
+function formatEventTime(iso) {
   if (!iso) return null;
-  const diff = new Date(iso) - Date.now();
-  if (diff <= 0) return "Ended";
-  const h = Math.floor(diff / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  if (h >= 48) return `${Math.floor(h / 24)}d`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7" />
+    </svg>
+  );
 }
 
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [event, setEvent] = useState(null);
-  const [status, setStatus] = useState("loading");
-  const [showModal, setShowModal] = useState(false);
+  const { state: locationState } = useLocation();
+  const { user } = useAuth();
+
+  const preloaded = locationState?.event;
+
+  const [event, setEvent] = useState(preloaded ?? null);
+  const [venue, setVenue] = useState(preloaded?.venue ?? null);
+  const [imageUrl, setImageUrl] = useState(preloaded?.image_url ?? null);
+  const [loading, setLoading] = useState(true);
+
+  const [booking, setBooking] = useState(null);
+  const [bookingState, setBookingState] = useState("idle");
+  const [bookingError, setBookingError] = useState(null);
 
   useEffect(() => {
     let alive = true;
-    getEvent(id)
-      .then((data) => {
+
+    async function load() {
+      try {
+        const fresh = await getEvent(id);
         if (!alive) return;
-        setEvent(data);
-        setStatus("ready");
-      })
-      .catch(() => alive && setStatus("error"));
+        setEvent(fresh);
+
+        const img =
+          fresh.image_url ??
+          preloaded?.image_url ??
+          (await fetchEventImage(fresh.title, fresh.category));
+        if (alive) setImageUrl(img);
+
+        if (preloaded?.venue) {
+          setVenue(preloaded.venue);
+        } else if (fresh.venue_id) {
+          try {
+            const v = await getVenue(fresh.venue_id);
+            if (alive) setVenue(v);
+          } catch {}
+        }
+      } catch {
+        if (alive && !preloaded) navigate("/", { replace: true });
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    load();
     return () => { alive = false; };
   }, [id]);
 
-  if (status === "loading") {
-    return (
-      <main className="flex-1 flex items-center justify-center" style={{ minHeight: "60vh", color: "#888", fontSize: 15 }}>
-        Loading event…
-      </main>
-    );
-  }
+  useEffect(() => {
+    if (!user) return;
+    getMyBookings()
+      .then((rows) => {
+        const row = rows.find((r) => (r.event?.id ?? r.booking?.event_id) === id);
+        setBooking(row?.booking ?? null);
+      })
+      .catch(() => {});
+  }, [user, id]);
 
-  if (status === "error" || !event) {
-    return (
-      <main className="flex-1" style={{ padding: "48px 48px", color: "#888", fontSize: 15 }}>
-        Event not found.{" "}
-        <button onClick={() => navigate(-1)} style={{ color: "#F5A623", background: "none", border: "none", cursor: "pointer", fontSize: 15, padding: 0 }}>
-          Go back
-        </button>
-      </main>
-    );
-  }
-
-  const venue = event.venue ?? {};
-  const category = event.category ?? venue.category;
-  const ends = countdown(event.ends_at);
-  const price = formatPrice(event.price_cents);
-  const accessible = venue.is_accessible;
-
-  function handleDirections() {
-    if (venue.lat && venue.lng) {
-      window.open(googleMapsUrl({ lat: venue.lat, lng: venue.lng }), "_blank", "noopener");
+  async function handleBook() {
+    if (!user) { navigate("/login"); return; }
+    setBookingState("loading");
+    setBookingError(null);
+    try {
+      const b = await createBooking(id);
+      setBooking(b);
+      setBookingState("success");
+    } catch (err) {
+      setBookingError(err?.response?.data?.detail ?? "Couldn't book this event.");
+      setBookingState("error");
     }
   }
 
+  async function handleCancel() {
+    if (!booking) return;
+    setBookingState("loading");
+    setBookingError(null);
+    try {
+      await cancelBooking(booking.id);
+      setBooking(null);
+      setBookingState("idle");
+    } catch (err) {
+      setBookingError(err?.response?.data?.detail ?? "Couldn't cancel.");
+      setBookingState("error");
+    }
+  }
+
+  if (loading && !preloaded) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "var(--color-muted)", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+
+  const ev = event ?? preloaded;
+  if (!ev) return null;
+
+  const isFree = ev.price_cents === 0;
+  const isBooked = booking?.status === "confirmed";
+  const noSpots = ev.spots_remaining != null && ev.spots_remaining === 0;
+  const hasEnded = ev.ends_at ? new Date(ev.ends_at) <= new Date() : new Date(ev.starts_at) <= new Date();
+  const dateStr = formatEventDate(ev.starts_at);
+  const startTime = formatEventTime(ev.starts_at);
+  const endTime = formatEventTime(ev.ends_at);
+  const timeStr = [startTime, endTime].filter(Boolean).join(" – ");
+  const dirUrl = venue ? googleMapsUrl({ lat: venue.lat, lng: venue.lng }) : null;
+
+
   return (
-    <main className="flex-1">
-      {/* Hero */}
-      <div
-        style={{
-          height: 300,
-          background: heroGradient(category),
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {category && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 32,
-              left: 48,
-              fontFamily: '"Space Mono", monospace',
-              fontSize: 12,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.5)",
-            }}
-          >
-            {category}
+    <main style={{ minHeight: "100vh", background: "var(--color-paper)", paddingBottom: 100 }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 100,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "12px 16px",
+        background: "var(--color-paper)",
+        borderBottom: "1px solid var(--color-line)",
+      }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--color-ink)", fontWeight: 600, fontSize: 14, padding: "4px 0" }}
+        >
+          <BackIcon /> Back
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--color-ink)", maxWidth: "55%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {ev.title}
+        </span>
+        <div style={{ width: 52 }} />
+      </div>
+
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px 0" }}>
+        <div style={{ width: "100%", height: "clamp(200px, 50vw, 280px)", borderRadius: 16, overflow: "hidden", background: "rgba(245,166,35,0.08)" }}>
+          {imageUrl ? (
+            <img src={imageUrl} alt={ev.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: 64, opacity: 0.25 }}>📅</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px 0" }}>
+
+        {ev.category && (
+          <div style={{ display: "inline-block", background: "rgba(245,166,35,0.15)", color: "#F5A623", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+            {ev.category}
           </div>
+        )}
+
+        <h1 style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: "clamp(22px, 5vw, 38px)", lineHeight: 1.1, letterSpacing: "-0.02em", color: "var(--color-ink)", margin: "0 0 12px" }}>
+          {ev.title}
+        </h1>
+
+        {ev.description && (
+          <p style={{ fontSize: 14, lineHeight: 1.7, color: "var(--color-muted)", margin: "0 0 20px" }}>
+            {ev.description}
+          </p>
+        )}
+
+        {(dateStr || timeStr) && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+            <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📅</span>
+            <div>
+              {dateStr && <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{dateStr}</div>}
+              {timeStr && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{timeStr}</div>}
+            </div>
+          </div>
+        )}
+
+        {venue && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+            <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📍</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{venue.name}</div>
+              {venue.address && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{venue.address}</div>}
+            </div>
+            {dirUrl && (
+              <a
+                href={dirUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ flexShrink: 0, background: "#F5A623", color: "#231a09", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+              >
+                Directions
+              </a>
+            )}
+          </div>
+        )}
+
+        {ev.spots_remaining != null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>👥</span>
+            <div>
+              <span style={{ fontWeight: 600, fontSize: 15, color: ev.spots_remaining < 10 ? "#E53935" : "var(--color-ink)" }}>
+                {ev.spots_remaining} spots left
+              </span>
+              {ev.capacity != null && (
+                <span style={{ fontSize: 13, color: "var(--color-muted)" }}> of {ev.capacity} total</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {ev.ai_summary && (
+          <>
+            <div style={{ borderTop: "1px solid var(--color-line)", margin: "22px 0" }} />
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--color-ink)", marginBottom: 12, letterSpacing: "-0.01em" }}>
+                AI Summary
+              </h2>
+              <div style={{
+                background: "rgba(245,166,35,0.08)",
+                border: "1px solid rgba(245,166,35,0.25)",
+                borderRadius: 14,
+                padding: "16px 18px",
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: "var(--color-ink)",
+              }}>
+                {ev.ai_summary}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Content */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 340px",
-          gap: 64,
-          padding: "40px 48px 80px",
-          maxWidth: 1100,
-          margin: "0 auto",
-        }}
-      >
-        {/* Left: details */}
-        <div>
-          {category && (
-            <div style={{ fontFamily: '"Space Mono", monospace', fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", marginBottom: 12 }}>
-              {category}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+        background: "var(--color-paper)",
+        borderTop: "1px solid var(--color-line)",
+        padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
+      }}>
+        <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ flexShrink: 0, minWidth: 56 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--color-ink)", lineHeight: 1 }}>
+            {formatPrice(ev.price_cents)}
+          </div>
+          {ev.original_price_cents != null && ev.original_price_cents > ev.price_cents && (
+            <div style={{ fontSize: 12, color: "var(--color-muted)", textDecoration: "line-through", marginTop: 2 }}>
+              {formatPrice(ev.original_price_cents)}
             </div>
           )}
-          <h1
-            style={{
-              fontFamily: '"Bricolage Grotesque", Inter, system-ui',
-              fontSize: 38,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.08,
-              margin: "0 0 20px",
-              color: "#111",
-            }}
-          >
-            {event.title}
-          </h1>
+        </div>
 
-          {event.description ? (
-            <p style={{ fontSize: 15, color: "#666", lineHeight: 1.7, maxWidth: "60ch", margin: "0 0 28px" }}>
-              {event.description}
-            </p>
+        <div style={{ flex: 1 }}>
+          {bookingError && (
+            <div style={{ fontSize: 12, color: "#E53935", marginBottom: 6 }}>{bookingError}</div>
+          )}
+
+          {hasEnded ? (
+            <button disabled style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#888", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
+              Event has ended
+            </button>
+          ) : isBooked ? (
+            <button
+              onClick={handleCancel}
+              disabled={bookingState === "loading"}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, background: "none", border: "2px solid #E53935", color: "#E53935", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            >
+              {bookingState === "loading" ? "Cancelling…" : "Cancel booking"}
+            </button>
+          ) : !user ? (
+            <button
+              onClick={() => navigate("/login")}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#F5A623", border: "none", color: "#231a09", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            >
+              Log in to reserve a spot
+            </button>
+          ) : isFree ? (
+            <button
+              onClick={handleBook}
+              disabled={bookingState === "loading" || noSpots}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, background: noSpots ? "#888" : "#F5A623", border: "none", color: noSpots ? "#fff" : "#231a09", fontWeight: 700, fontSize: 15, cursor: noSpots ? "not-allowed" : "pointer", opacity: bookingState === "loading" ? 0.7 : 1 }}
+            >
+              {bookingState === "loading" ? "Booking…" : noSpots ? "Sold out" : "Reserve a spot"}
+            </button>
           ) : (
-            venue.name && (
-              <p style={{ fontSize: 15, color: "#666", lineHeight: 1.7, maxWidth: "60ch", margin: "0 0 28px" }}>
-                Join us for an exciting event at {venue.name}
-                {venue.address ? `, ${venue.address}` : ""}.
-                {formatTime(event.starts_at) ? ` Starts ${formatTime(event.starts_at)}.` : ""}
-              </p>
-            )
+            <button disabled style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#888", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
+              Payment coming soon
+            </button>
           )}
-
-          <div style={{ borderTop: "1px solid #eae4d9", paddingTop: 20, display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
-            {accessible && (
-              <span style={{ fontSize: 13, color: "#2E9E6B", fontWeight: 500 }}>
-                Wheelchair accessible
-              </span>
-            )}
-            <span style={{ fontSize: 13, color: "#2E9E6B", fontWeight: 500 }}>
-              All ages welcome
-            </span>
-          </div>
         </div>
-
-        {/* Right: pricing + CTAs */}
-        <div style={{ paddingTop: 4 }}>
-          {/* Price */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 38, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', letterSpacing: "-0.02em", color: "#111" }}>
-              {price ?? "Free"}
-            </span>
-          </div>
-
-          {/* Countdown */}
-          {ends && ends !== "Ended" && (
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 24 }}>
-              Ends in {ends}
-            </div>
-          )}
-          {ends === "Ended" && (
-            <div style={{ fontSize: 13, color: "#E53935", marginBottom: 24 }}>Event has ended</div>
-          )}
-
-          {/* CTA buttons */}
-          <button
-            onClick={handleDirections}
-            style={{
-              display: "block",
-              width: "100%",
-              background: "#111",
-              color: "#fff",
-              border: "none",
-              padding: "15px",
-              borderRadius: 10,
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: "pointer",
-              marginBottom: 12,
-              letterSpacing: "0.01em",
-            }}
-          >
-            Get Directions
-          </button>
-
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              width: "100%",
-              background: "#fff",
-              color: "#111",
-              border: "1.5px solid #111",
-              padding: "14px",
-              borderRadius: 10,
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-              boxSizing: "border-box",
-            }}
-          >
-            <HeartIcon /> Save Activity
-          </button>
         </div>
       </div>
-
-      {/* App download modal */}
-      {showModal && <AppModal onClose={() => setShowModal(false)} />}
     </main>
-  );
-}
-
-function AppModal({ onClose }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "40px 44px",
-          width: 420,
-          maxWidth: "90vw",
-          textAlign: "center",
-          position: "relative",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
-        }}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 18,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 20,
-            color: "#888",
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
-
-        <div style={{ fontSize: 15, fontWeight: 800, color: "#F5A623", letterSpacing: "0.04em", marginBottom: 16 }}>
-          FROMO
-        </div>
-
-        <h2
-          style={{
-            fontFamily: '"Bricolage Grotesque", Inter, system-ui',
-            fontSize: 26,
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            color: "#111",
-            margin: "0 0 10px",
-          }}
-        >
-          Open in the FROMO App
-        </h2>
-
-        <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5, margin: "0 0 28px" }}>
-          Get directions, save activities, and unlock exclusive student deals
-        </p>
-
-        <div
-          style={{
-            display: "inline-block",
-            padding: 12,
-            border: "1px solid #e8e2da",
-            borderRadius: 10,
-            marginBottom: 12,
-          }}
-        >
-          <QrCode />
-        </div>
-
-        <p style={{ fontSize: 12.5, color: "#aaa", margin: 0 }}>Scan with your camera</p>
-      </div>
-    </div>
-  );
-}
-
-function QrCode() {
-  const rows = [
-    "1111111011000011111110",
-    "1000001001101010000010",
-    "1011101011010110111010",
-    "1011101000100010111010",
-    "1011101001001010111010",
-    "1000001010011010000010",
-    "1111111010101011111111",
-    "0000000101010100000000",
-    "0111011011101101101011",
-    "1100100100010010110010",
-    "1011011010101100101101",
-    "0011000101101000011001",
-    "0101111011010110101110",
-    "0000000101011011000101",
-    "1111111000101100101011",
-    "1000001011011010001100",
-    "1011101010100100111011",
-    "1011101001101100110011",
-    "1011101011010011010101",
-    "1000001010101000111001",
-    "1111111001010110010111",
-  ];
-  const cell = 4;
-  const W = rows[0].length * cell;
-  const H = rows.length * cell;
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
-      <rect width={W} height={H} fill="white" />
-      {rows.map((row, r) =>
-        row.split("").map((c, col) =>
-          c === "1" ? (
-            <rect key={`${r}-${col}`} x={col * cell} y={r * cell} width={cell} height={cell} fill="#111" />
-          ) : null
-        )
-      )}
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
   );
 }

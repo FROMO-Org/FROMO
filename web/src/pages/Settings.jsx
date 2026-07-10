@@ -127,6 +127,22 @@ export default function Settings() {
 
       <Divider />
 
+      {/* My Bookings */}
+      <Section label="My Bookings">
+        <div
+          onClick={() => navigate("/bookings")}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 0", cursor: "pointer", borderBottom: "1px solid var(--color-line)",
+          }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink)" }}>View reserved events</span>
+          <span style={{ color: "var(--color-muted)", fontSize: 16 }}>→</span>
+        </div>
+      </Section>
+
+      <Divider />
+
       {/* Account */}
       <Section label="Account">
         <div style={{ display: "flex", flexDirection: "column", gap: 20, paddingTop: 4 }}>

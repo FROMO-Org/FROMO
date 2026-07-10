@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 import { formatDistance, formatTime, formatPrice } from "../lib/format.js";
 
 const BUSYNESS_STYLE = {
@@ -31,16 +33,23 @@ function BookmarkIcon({ filled }) {
 }
 
 export default function EventCard({ event, active, onSelect, onDirections, saved, onSave, busynessLevel }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const v = event.venue || {};
   const category = event.category || v.category;
   const accessible = v.is_accessible;
   const busy = busynessLevel ? BUSYNESS_STYLE[busynessLevel.toLowerCase()] : null;
 
+  function openDetail() {
+    if (!user) { navigate("/login"); return; }
+    navigate(`/events/${event.id}`, { state: { event } });
+  }
+
   return (
     <article
       tabIndex={0}
-      onClick={() => onSelect(event.id)}
-      onKeyDown={(e) => e.key === "Enter" && onSelect(event.id)}
+      onClick={openDetail}
+      onKeyDown={(e) => e.key === "Enter" && openDetail()}
       className={`cursor-pointer rounded-[14px] border transition focus:outline-none focus-visible:ring-[3px] focus-visible:ring-amber/50 overflow-hidden ${
         active
           ? "border-amber ring-1 ring-amber"

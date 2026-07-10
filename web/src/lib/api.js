@@ -18,33 +18,26 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ── Profiles (all auth-required) ──
 export const getMyProfile = () => api.get("/profiles/me").then((r) => r.data);
 export const createMyProfile = (full_name) =>
   api.post("/profiles/me", { full_name }).then((r) => r.data);
-// patch = { full_name?, user_type? }
 export const updateMyProfile = (patch) =>
   api.patch("/profiles/me", patch).then((r) => r.data);
 
-// ── Events ──
 export const listEvents = (params = {}) =>
   api.get("/events/", { params }).then((r) => r.data);
 export const getEvent = (id) => api.get(`/events/${id}`).then((r) => r.data);
 
-// ── Venues ──
 export const listVenues = (params = {}) =>
   api.get("/venues/", { params }).then((r) => r.data);
 export const getVenue = (id) => api.get(`/venues/${id}`).then((r) => r.data);
 
-// ── Busyness ──
 export const getBusynessNearby = (params = {}) =>
   api.get("/busyness/nearby", { params }).then((r) => r.data);
 
-// ── Events (write) ──
 export const createEvent = (body) =>
   api.post("/events/", body).then((r) => r.data);
 
-// ── Organisations / Partner ──
 export const getMyOrganisations = () =>
   api.get("/organisations/me").then((r) => r.data);
 export const getOrganisationDashboard = (orgId) =>
@@ -52,28 +45,33 @@ export const getOrganisationDashboard = (orgId) =>
 export const createOrganisation = (name) =>
   api.post("/organisations/", { name }).then((r) => r.data);
 
-// ── Saved Events ──
 export const getSavedEvents = () => api.get("/saved-events/me").then((r) => r.data);
 export const saveEvent = (event_id) =>
   api.post("/saved-events/", { event_id }).then((r) => r.data);
 export const unsaveEvent = (event_id) =>
   api.delete(`/saved-events/${event_id}`).then((r) => r.data);
 
-// ── Discover feed ──
+export const getMyBookings = () => api.get("/bookings/me").then((r) => r.data);
+export const createBooking = (event_id, quantity = 1) =>
+  api.post("/bookings/", { event_id, quantity }).then((r) => r.data);
+export const cancelBooking = (booking_id) =>
+  api.patch(`/bookings/${booking_id}`).then((r) => r.data);
+
 export async function getDiscoverFeed({
   lat = DEFAULT_CENTER.lat,
   lng = DEFAULT_CENTER.lng,
   radius_km = DEFAULT_RADIUS_KM,
   limit = FEED_LIMIT,
+  all = false,
 } = {}) {
+  const locationParams = all ? {} : { lat, lng, radius_km };
   const [items, venues] = await Promise.all([
-    listEvents({ status: PUBLIC_EVENT_STATUS, lat, lng, radius_km, limit }),
+    listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit }),
     listVenues({ limit: 100 }),
   ]);
 
   const venuesById = Object.fromEntries(venues.map((v) => [v.id, v]));
 
-  // Fetch images in batches of 4 to avoid Ticketmaster rate limits
   const BATCH = 4;
   const enriched = [];
   for (let i = 0; i < items.length; i += BATCH) {

@@ -8,6 +8,8 @@ import Listings from "./pages/partner/Listings.jsx";
 import Analytics from "./pages/partner/Analytics.jsx";
 import PartnerSettings from "./pages/partner/PartnerSettings.jsx";
 import Settings from "./pages/Settings.jsx";
+import EventDetail from "./pages/EventDetail.jsx";
+import Bookings from "./pages/Bookings.jsx";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -21,10 +23,13 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/events/:id" element={<EventDetail />} />
+        <Route path="/bookings" element={<Bookings />} />
         <Route path="/partner" element={<PartnerLayout />}>
           <Route index element={<Listings />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<PartnerSettings />} />
+          <Route path="bookings" element={<Bookings />} />
         </Route>
       </Routes>
     </div>
