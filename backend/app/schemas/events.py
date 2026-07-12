@@ -13,6 +13,7 @@ class PublicEventResponse(OrmSchema):
     id: UUID
     title: str
     description: str | None
+    ai_summary: str | None = None
     category: str | None
     price_cents: int
     original_price_cents: int | None
@@ -29,7 +30,6 @@ class PublicEventResponse(OrmSchema):
 class OrganiserEventResponse(PublicEventResponse):
     """Extends public response with fields only org members need."""
     host_organisation_id: UUID
-    ai_summary: str | None
 
 
 class EventListItemResponse(BaseModel):

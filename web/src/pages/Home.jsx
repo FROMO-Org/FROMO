@@ -43,7 +43,7 @@ export default function Home() {
     getBusynessNearby({
       lat: DEFAULT_CENTER.lat,
       lng: DEFAULT_CENTER.lng,
-      radius_km: 15,
+      radius_km: 1,
     })
       .then((data) => setBusynessAreas(data.areas ?? []))
       .catch(() => {});

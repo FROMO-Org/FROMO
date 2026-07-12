@@ -45,13 +45,11 @@ export function AuthProvider({ children }) {
     if (error) throw error;
 
     if (data.session) {
-      // Step 1: create profile row — 409 means it already exists, that's fine
       try {
         await createMyProfile(fullName);
       } catch (err) {
         if (err?.response?.status !== 409) console.error("createMyProfile:", err);
       }
-      // Step 2: set role — always runs regardless of step 1 result
       try {
         const updated = await updateMyProfile({ user_type: userType });
         setProfile(updated);

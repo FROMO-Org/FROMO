@@ -68,8 +68,6 @@ async function fetchFromUnsplash(category) {
   }
 }
 
-// 1. Try Ticketmaster by event title (specific match)
-// 2. Fall back to Unsplash by category (generic but always relevant)
 export async function fetchEventImage(title, category) {
   const tmUrl = await fetchFromTicketmaster(title);
   if (tmUrl) return tmUrl;

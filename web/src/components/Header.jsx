@@ -24,11 +24,7 @@ export default function Header() {
         FROMO<span className="live-dot" aria-hidden="true" />
       </Link>
 
-      <nav className="flex items-center" style={{ gap: "clamp(16px, 2.5vw, 24px)" }} aria-label="Primary">
-        <Link to="/" className="font-medium" style={{ fontSize: "clamp(13px, 1.4vw, 16px)", color: "var(--color-ink)" }}>
-          Discover
-        </Link>
-      </nav>
+      <nav />
 
       <div className="flex items-center" style={{ gap: "clamp(8px, 1vw, 12px)" }}>
         {user ? (
