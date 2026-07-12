@@ -8,6 +8,7 @@ import 'core/auth_provider.dart';
 import 'core/constants.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/feedback/feedback_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,7 @@ class _FroMoAppState extends ConsumerState<FroMoApp> {
   void initState() {
     super.initState();
     _syncInitialSession();
+    unawaited(ref.read(feedbackPromptControllerProvider).recordAppLaunch());
     _authSub = supabase.auth.onAuthStateChange.listen((authState) async {
       final session = authState.session;
       final api = ref.read(apiClientProvider);

@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
 import '../../shared/models/venue.dart';
+import '../bookings/bookings_providers.dart';
 import 'event_detail_providers.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -15,13 +17,36 @@ class EventDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
+    with WidgetsBindingObserver {
   bool _booking = false;
   bool _booked = false; // set after a successful (or already-existing) booking
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    ref.invalidate(myBookingsProvider);
+    ref.invalidate(eventPaymentStateProvider(widget.eventId));
+  }
+
+  @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(eventDetailProvider(widget.eventId));
+    final paymentStateAsync = ref.watch(
+      eventPaymentStateProvider(widget.eventId),
+    );
 
     return Scaffold(
       backgroundColor: FromoColors.gray50,
@@ -35,7 +60,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           detail: detail,
           booking: _booking,
           booked: _booked,
-          isSaved: ref
+          paymentState: paymentStateAsync.valueOrNull ?? EventPaymentState.none,
+          isSaved:
+              ref
                   .watch(savedEventIdsProvider)
                   .valueOrNull
                   ?.contains(detail.event.id) ??
@@ -49,7 +76,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   }
 
   Future<void> _toggleSave(String eventId) async {
-    final saved = ref.read(savedEventIdsProvider).valueOrNull?.contains(eventId) ?? false;
+    final saved =
+        ref.read(savedEventIdsProvider).valueOrNull?.contains(eventId) ?? false;
     final actions = ref.read(eventActionsProvider);
     try {
       if (saved) {
@@ -58,7 +86,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         await actions.save(eventId);
       }
     } catch (e) {
-      if (mounted) _snack(_messageFor(e, fallback: 'Could not update saved events'));
+      if (mounted) {
+        _snack(_messageFor(e, fallback: 'Could not update saved events'));
+      }
     }
   }
 
@@ -66,21 +96,44 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     if (_booking || _booked) return;
     setState(() => _booking = true);
     try {
+      if (!event.isFree) {
+        final checkout = await ref
+            .read(eventActionsProvider)
+            .startCheckout(event.id);
+        if (!mounted) return;
+
+        final uri = Uri.parse(checkout.checkoutUrl);
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched) {
+          _snack('Could not open Stripe checkout');
+          return;
+        }
+
+        _snack('Complete payment in Stripe to confirm your booking');
+        return;
+      }
+
       await ref.read(eventActionsProvider).book(event.id);
       if (!mounted) return;
       setState(() => _booked = true);
-      _snack(event.isFree ? 'You\'re going! 🎉' : 'Booked! 🎉');
+      _snack('You\'re going!');
     } on DioException catch (e) {
       if (!mounted) return;
       // 409 = already booked: treat as success so the button reflects reality.
       if (e.response?.statusCode == 409 &&
           (e.response?.data is Map &&
-              (e.response?.data['detail'] as String?)?.contains('already') == true)) {
+              (e.response?.data['detail'] as String?)?.contains('already') ==
+                  true)) {
         setState(() => _booked = true);
       }
       _snack(_messageFor(e, fallback: 'Could not complete booking'));
     } catch (e) {
-      if (mounted) _snack(_messageFor(e, fallback: 'Could not complete booking'));
+      if (mounted) {
+        _snack(_messageFor(e, fallback: 'Could not complete booking'));
+      }
     } finally {
       if (mounted) setState(() => _booking = false);
     }
@@ -89,7 +142,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   String _messageFor(Object e, {required String fallback}) {
     if (e is DioException) {
       final detail = e.response?.data;
-      if (detail is Map && detail['detail'] is String) return detail['detail'] as String;
+      if (detail is Map && detail['detail'] is String) {
+        return detail['detail'] as String;
+      }
     }
     return fallback;
   }
@@ -108,6 +163,7 @@ class _Content extends StatelessWidget {
   final bool isSaved;
   final bool booking;
   final bool booked;
+  final EventPaymentState paymentState;
   final VoidCallback onBack;
   final VoidCallback onToggleSave;
   final VoidCallback onBook;
@@ -117,6 +173,7 @@ class _Content extends StatelessWidget {
     required this.isSaved,
     required this.booking,
     required this.booked,
+    required this.paymentState,
     required this.onBack,
     required this.onToggleSave,
     required this.onBook,
@@ -131,7 +188,12 @@ class _Content extends StatelessWidget {
       children: [
         CustomScrollView(
           slivers: [
-            _HeaderImage(onBack: onBack, isSaved: isSaved, onToggleSave: onToggleSave),
+            _HeaderImage(
+              imageUrl: detail.imageUrl,
+              onBack: onBack,
+              isSaved: isSaved,
+              onToggleSave: onToggleSave,
+            ),
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
@@ -170,6 +232,15 @@ class _Content extends StatelessWidget {
                           : null,
                       trailing: _DirectionsButton(venue: venue),
                     ),
+                    if (event.url != null && event.url!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.link_outlined,
+                        title: 'Event link',
+                        subtitle: event.url!,
+                        trailing: _EventLinkButton(url: event.url!),
+                      ),
+                    ],
                     if (event.spotsRemaining != null) ...[
                       const SizedBox(height: 12),
                       _InfoRow(
@@ -189,7 +260,8 @@ class _Content extends StatelessWidget {
                         title: 'Wheelchair accessible',
                       ),
                     ],
-                    if (event.description != null && event.description!.isNotEmpty) ...[
+                    if (event.description != null &&
+                        event.description!.isNotEmpty) ...[
                       const SizedBox(height: 24),
                       const _SectionTitle('About'),
                       const SizedBox(height: 8),
@@ -202,7 +274,8 @@ class _Content extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (event.aiSummary != null && event.aiSummary!.trim().isNotEmpty) ...[
+                    if (event.aiSummary != null &&
+                        event.aiSummary!.trim().isNotEmpty) ...[
                       const SizedBox(height: 24),
                       const _SectionTitle('AI Summary'),
                       const SizedBox(height: 8),
@@ -240,6 +313,7 @@ class _Content extends StatelessWidget {
             event: event,
             booking: booking,
             booked: booked,
+            paymentState: paymentState,
             onBook: onBook,
           ),
         ),
@@ -251,11 +325,13 @@ class _Content extends StatelessWidget {
 // ── Header image ─────────────────────────────────────────────────────────────
 
 class _HeaderImage extends StatelessWidget {
+  final String? imageUrl;
   final VoidCallback onBack;
   final bool isSaved;
   final VoidCallback onToggleSave;
 
   const _HeaderImage({
+    required this.imageUrl,
     required this.onBack,
     required this.isSaved,
     required this.onToggleSave,
@@ -269,18 +345,7 @@ class _HeaderImage extends StatelessWidget {
       automaticallyImplyLeading: false,
       backgroundColor: FromoColors.teal,
       flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [FromoColors.teal, FromoColors.tealDark],
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.event, size: 72, color: Colors.white54),
-          ),
-        ),
+        background: _EventHeaderBackground(imageUrl: imageUrl),
       ),
       leading: Padding(
         padding: const EdgeInsets.all(8),
@@ -295,6 +360,64 @@ class _HeaderImage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EventHeaderBackground extends StatelessWidget {
+  final String? imageUrl;
+
+  const _EventHeaderBackground({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedUrl = imageUrl?.trim();
+    if (normalizedUrl == null || normalizedUrl.isEmpty) {
+      return const _HeaderPlaceholder();
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: normalizedUrl,
+          fit: BoxFit.cover,
+          placeholder: (_, _) => const _HeaderPlaceholder(),
+          errorWidget: (_, _, _) => const _HeaderPlaceholder(),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.10),
+                Colors.black.withValues(alpha: 0.34),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderPlaceholder extends StatelessWidget {
+  const _HeaderPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [FromoColors.teal, FromoColors.tealDark],
+        ),
+      ),
+      child: const Center(
+        child: Icon(Icons.event, size: 72, color: Colors.white54),
+      ),
     );
   }
 }
@@ -410,7 +533,10 @@ class _InfoRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle!,
-                  style: const TextStyle(fontSize: 12, color: FromoColors.gray500),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: FromoColors.gray500,
+                  ),
                 ),
               ],
             ],
@@ -441,7 +567,40 @@ class _DirectionsButton extends StatelessWidget {
     return TextButton.icon(
       onPressed: _open,
       icon: const Icon(Icons.directions, size: 18, color: FromoColors.teal),
-      label: const Text('Directions', style: TextStyle(color: FromoColors.teal)),
+      label: const Text(
+        'Directions',
+        style: TextStyle(color: FromoColors.teal),
+      ),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
+class _EventLinkButton extends StatelessWidget {
+  final String url;
+  const _EventLinkButton({required this.url});
+
+  Future<void> _open() async {
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _open,
+      icon: const Icon(Icons.open_in_new, size: 18, color: FromoColors.teal),
+      label: const Text('Open', style: TextStyle(color: FromoColors.teal)),
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         minimumSize: Size.zero,
@@ -457,12 +616,14 @@ class _BookingBar extends StatelessWidget {
   final Event event;
   final bool booking;
   final bool booked;
+  final EventPaymentState paymentState;
   final VoidCallback onBook;
 
   const _BookingBar({
     required this.event,
     required this.booking,
     required this.booked,
+    required this.paymentState,
     required this.onBook,
   });
 
@@ -471,11 +632,16 @@ class _BookingBar extends StatelessWidget {
     final soldOut = event.spotsRemaining != null && event.spotsRemaining! <= 0;
     final ended = event.isPast;
     final unavailable = event.status != 'active';
-    final disabled = booking || booked || soldOut || unavailable || ended;
+    final paid = booked || paymentState.isPaid;
+    final pendingPayment = paymentState.isPending && !paid;
+    final disabled =
+        booking || paid || pendingPayment || soldOut || unavailable || ended;
 
     final String label;
-    if (booked) {
-      label = 'Booked ✓';
+    if (paid) {
+      label = event.isFree ? 'Booked ✓' : 'Paid ✓';
+    } else if (pendingPayment) {
+      label = 'Payment pending';
     } else if (ended) {
       label = 'Event has ended';
     } else if (unavailable) {
@@ -485,11 +651,16 @@ class _BookingBar extends StatelessWidget {
     } else if (event.isFree) {
       label = 'Reserve a spot';
     } else {
-      label = 'Book now';
+      label = 'Pay with Stripe';
     }
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        12 + MediaQuery.of(context).padding.bottom,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -521,9 +692,35 @@ class _BookingBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: event.isFree ? FromoColors.gray900 : FromoColors.green600,
+                  color: event.isFree
+                      ? FromoColors.gray900
+                      : FromoColors.green600,
                 ),
               ),
+              if (pendingPayment)
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Not paid yet',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: FromoColors.gray500,
+                    ),
+                  ),
+                )
+              else if (paid && !event.isFree)
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Paid',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: FromoColors.green600,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(width: 16),
@@ -572,12 +769,21 @@ class _ErrorView extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: FromoColors.gray500),
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: FromoColors.gray500,
+                ),
                 const SizedBox(height: 12),
-                const Text("Couldn't load this event",
-                    style: TextStyle(color: FromoColors.gray700)),
+                const Text(
+                  "Couldn't load this event",
+                  style: TextStyle(color: FromoColors.gray700),
+                ),
                 const SizedBox(height: 12),
-                OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+                OutlinedButton(
+                  onPressed: onRetry,
+                  child: const Text('Try again'),
+                ),
               ],
             ),
           ),
@@ -590,8 +796,18 @@ class _ErrorView extends StatelessWidget {
 // ── Date/time formatting ─────────────────────────────────────────────────────
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

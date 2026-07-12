@@ -4,20 +4,27 @@ class VenueSummary {
   final double lat;
   final double lng;
 
-  const VenueSummary({required this.id, required this.name, required this.lat, required this.lng});
+  const VenueSummary({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+  });
 
   factory VenueSummary.fromJson(Map<String, dynamic> j) => VenueSummary(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        lat: (j['lat'] as num).toDouble(),
-        lng: (j['lng'] as num).toDouble(),
-      );
+    id: j['id'] as String,
+    name: j['name'] as String,
+    lat: (j['lat'] as num).toDouble(),
+    lng: (j['lng'] as num).toDouble(),
+  );
 }
 
 class Event {
   final String id;
   final String title;
   final String? description;
+  final String? url;
+  final String? imageUrl;
   final String? category;
   final String venueId;
   // Only present on the organiser response; the public event payload omits it.
@@ -36,6 +43,8 @@ class Event {
     required this.id,
     required this.title,
     this.description,
+    this.url,
+    this.imageUrl,
     this.category,
     required this.venueId,
     this.hostOrganisationId,
@@ -51,22 +60,46 @@ class Event {
   });
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
-        id: j['id'] as String,
-        title: j['title'] as String,
-        description: j['description'] as String?,
-        category: j['category'] as String?,
-        venueId: j['venue_id'] as String,
-        hostOrganisationId: j['host_organisation_id'] as String?,
-        status: j['status'] as String,
-        startsAt: DateTime.parse(j['starts_at'] as String),
-        endsAt: j['ends_at'] != null ? DateTime.parse(j['ends_at'] as String) : null,
-        priceCents: j['price_cents'] as int,
-        originalPriceCents: j['original_price_cents'] as int?,
-        capacity: j['capacity'] as int?,
-        spotsRemaining: j['spots_remaining'] as int?,
-        aiSummary: j['ai_summary'] as String?,
-        createdAt: DateTime.parse(j['created_at'] as String),
-      );
+    id: j['id'] as String,
+    title: j['title'] as String,
+    description: j['description'] as String?,
+    url: j['url'] as String?,
+    imageUrl: j['image_url'] as String?,
+    category: j['category'] as String?,
+    venueId: j['venue_id'] as String,
+    hostOrganisationId: j['host_organisation_id'] as String?,
+    status: j['status'] as String,
+    startsAt: DateTime.parse(j['starts_at'] as String),
+    endsAt: j['ends_at'] != null
+        ? DateTime.parse(j['ends_at'] as String)
+        : null,
+    priceCents: j['price_cents'] as int,
+    originalPriceCents: j['original_price_cents'] as int?,
+    capacity: j['capacity'] as int?,
+    spotsRemaining: j['spots_remaining'] as int?,
+    aiSummary: j['ai_summary'] as String?,
+    createdAt: DateTime.parse(j['created_at'] as String),
+  );
+
+  Event copyWith({String? imageUrl}) => Event(
+    id: id,
+    title: title,
+    description: description,
+    url: url,
+    imageUrl: imageUrl ?? this.imageUrl,
+    category: category,
+    venueId: venueId,
+    hostOrganisationId: hostOrganisationId,
+    status: status,
+    startsAt: startsAt,
+    endsAt: endsAt,
+    priceCents: priceCents,
+    originalPriceCents: originalPriceCents,
+    capacity: capacity,
+    spotsRemaining: spotsRemaining,
+    aiSummary: aiSummary,
+    createdAt: createdAt,
+  );
 
   String get priceDisplay =>
       priceCents == 0 ? 'Free' : '\$${(priceCents / 100).toStringAsFixed(2)}';
@@ -93,11 +126,15 @@ class EventListItem {
   final double? distanceKm;
   final VenueSummary venue;
 
-  const EventListItem({required this.event, this.distanceKm, required this.venue});
+  const EventListItem({
+    required this.event,
+    this.distanceKm,
+    required this.venue,
+  });
 
   factory EventListItem.fromJson(Map<String, dynamic> j) => EventListItem(
-        event: Event.fromJson(j['event'] as Map<String, dynamic>),
-        distanceKm: (j['distance_km'] as num?)?.toDouble(),
-        venue: VenueSummary.fromJson(j['venue'] as Map<String, dynamic>),
-      );
+    event: Event.fromJson(j['event'] as Map<String, dynamic>),
+    distanceKm: (j['distance_km'] as num?)?.toDouble(),
+    venue: VenueSummary.fromJson(j['venue'] as Map<String, dynamic>),
+  );
 }

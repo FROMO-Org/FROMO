@@ -75,6 +75,7 @@ class Event(Base):
     host_organisation_id = Column(UUID(as_uuid=True), ForeignKey("organisations.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
+    url = Column(String)
     category = Column(String)
     price_cents = Column(Integer, nullable=False, server_default=text("0"))
     original_price_cents = Column(Integer)

@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth_provider.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../bookings/bookings_providers.dart';
 import '../events/event_detail_providers.dart';
+import '../feedback/feedback_prompt.dart';
+import '../feedback/feedback_providers.dart';
+import '../feedback/feedback_service.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _checkedFeedbackPrompt = false;
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
     await ref.read(authActionsProvider).signOut();
@@ -16,7 +27,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final fullName = user?.userMetadata?['full_name'] as String?;
     final displayName = (fullName != null && fullName.trim().isNotEmpty)
@@ -24,6 +35,13 @@ class ProfileScreen extends ConsumerWidget {
         : 'Student';
     final savedCount = ref.watch(savedEventsProvider).valueOrNull?.length;
     final bookingCount = ref.watch(myBookingsProvider).valueOrNull?.length;
+
+    if (!_checkedFeedbackPrompt) {
+      _checkedFeedbackPrompt = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowFeedbackPrompt();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -147,6 +165,51 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _maybeShowFeedbackPrompt() async {
+    final controller = ref.read(feedbackPromptControllerProvider);
+    final shouldPrompt = await controller.shouldPrompt();
+    if (!mounted || !shouldPrompt) return;
+
+    await controller.markPromptShown();
+    if (!mounted) return;
+
+    final vote = await showAppFeedbackPrompt(context);
+    if (!mounted) return;
+
+    if (vote == null) {
+      await controller.dismissPrompt();
+      return;
+    }
+
+    try {
+      await controller.submit(vote);
+      if (!mounted) return;
+      final message = switch (vote) {
+        FeedbackVote.up => 'Thanks for the love.',
+        FeedbackVote.down => 'Thanks for the honest feedback.',
+      };
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      final details = e.details;
+      final detail = (e.message.isNotEmpty ? e.message : null) ??
+          (details is String && details.isNotEmpty ? details : null) ??
+          'Could not send feedback right now';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(detail)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Could not send feedback right now')),
+        );
+    }
   }
 }
 
