@@ -30,7 +30,7 @@ jobs:
         # health-timeout: fail the check if it takes longer than 5 seconds
         # health-retries: mark the service as failed after 5 consecutive failures
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -38,6 +38,11 @@ jobs:
     env:
       # These environment variables are available to all steps in this job
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres  # Matches the service config above
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
       SUPABASE_URL: https://example.supabase.co        # Fake value — tests do not call real Supabase
       SUPABASE_PUBLISHABLE_KEY: test-publishable-key   # Fake value — same reason as above
       # If real secrets are ever needed, use ${{ secrets.SECRET_NAME }} instead of plain text
