@@ -19,7 +19,7 @@ uv sync
 5. Start the API:
 
 ```bash
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 ```
 
 Open Swagger docs at:
@@ -108,3 +108,156 @@ Saved events:
 .venv/bin/python -m compileall app main.py
 .venv/bin/python -B -c "from main import app; print(len(app.routes))"
 ```
+
+## Supabase Workflow
+
+### What changed
+
+We now keep database schema changes in `backend/supabase/migrations/` instead of relying only on
+manual edits in the Supabase dashboard.
+
+### What teammates need
+
+- Supabase CLI installed
+- Docker Desktop running when using Supabase database tools like `db pull`, `db diff`, or local
+  Supabase services
+
+### One-time setup
+
+Run these from `backend/`:
+
+```bash
+supabase login
+supabase link
+```
+
+### Normal coding
+
+Most of the time, teammates do not need to run Supabase commands.
+
+Normal feature work is usually just:
+
+```bash
+git pull
+uv sync
+uv run uvicorn main:app --reload
+```
+
+Use the shared online Supabase database as usual.
+
+### When changing the database schema
+
+If you need to add a table, column, constraint, or index:
+
+1. Create a feature branch
+2. Create a migration file
+3. Edit the SQL in VS Code
+4. Commit the migration file
+5. After review, apply it to the shared remote database
+
+Example:
+
+```bash
+git checkout -b feat/payments
+cd backend
+supabase migration new add_payments
+```
+
+That creates a SQL file in:
+
+```text
+backend/supabase/migrations/
+```
+
+After editing the SQL file, apply it to the linked remote Supabase project:
+
+```bash
+supabase db push
+```
+
+### Useful Supabase commands
+
+Run these from `backend/`:
+
+```bash
+supabase migration list
+supabase migration new add_something
+supabase db push
+```
+
+### Dashboard rule
+
+The Supabase dashboard is still fine for:
+
+- viewing tables
+- checking rows
+- inspecting auth users
+- inspecting logs
+
+Try not to make schema changes directly in the dashboard first. Prefer migration files so the
+database structure stays tracked in Git.
+
+## Render Deploy Settings
+
+### Backend service
+
+Render service type:
+
+- Web Service
+
+Root directory:
+
+```text
+backend
+```
+
+Build command:
+
+```bash
+uv sync
+```
+
+Start command:
+
+```bash
+uv run uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Backend environment variables to set in Render:
+
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+
+### Frontend site
+
+Render service type:
+
+- Static Site
+
+Root directory:
+
+```text
+web
+```
+
+Build command:
+
+```bash
+npm install && npm run build
+```
+
+Publish directory:
+
+```text
+dist
+```
+
+There is no start command for a Render Static Site.
+
+Frontend environment variables to set in Render:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_BASE_URL`
+- optional: `VITE_ORS_API_KEY`
