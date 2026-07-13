@@ -1,11 +1,29 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { getSavedEvents, unsaveEvent } from "../lib/api";
+import { formatTime, formatPrice } from "../lib/format";
 
 export default function Settings() {
   const { user, profile, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (profile?.user_type === "organiser") navigate("/partner/settings", { replace: true });
+  }, [profile, navigate]);
+  const [savedEvents, setSavedEvents] = useState([]);
+  const [savedStatus, setSavedStatus] = useState("loading");
+
+  useEffect(() => {
+    getSavedEvents()
+      .then((data) => {
+        setSavedEvents(data ?? []);
+        setSavedStatus("ready");
+      })
+      .catch(() => setSavedStatus("error"));
+  }, []);
 
   const personalName = profile?.full_name || user?.user_metadata?.full_name || user?.email || "";
   const initials = personalName
@@ -19,6 +37,15 @@ export default function Settings() {
   async function handleSignOut() {
     await signOut();
     navigate("/");
+  }
+
+  async function handleUnsave(eventId) {
+    setSavedEvents((prev) => prev.filter((s) => (s.event?.id ?? s.event_id) !== eventId));
+    try {
+      await unsaveEvent(eventId);
+    } catch {
+      getSavedEvents().then((data) => setSavedEvents(data ?? [])).catch(() => {});
+    }
   }
 
   return (
@@ -43,6 +70,75 @@ export default function Settings() {
       {/* Appearance */}
       <Section label="Appearance">
         <ToggleRow label="Dark mode" on={isDark} onToggle={toggleTheme} />
+      </Section>
+
+      <Divider />
+
+      {/* Saved Events */}
+      <Section label="Saved Events">
+        {savedStatus === "loading" && (
+          <div style={{ fontSize: 13, color: "var(--color-muted)", paddingTop: 4 }}>Loading…</div>
+        )}
+        {savedStatus === "error" && (
+          <div style={{ fontSize: 13, color: "var(--color-muted)", paddingTop: 4 }}>Couldn't load saved events.</div>
+        )}
+        {savedStatus === "ready" && savedEvents.length === 0 && (
+          <div style={{ fontSize: 13, color: "var(--color-muted)", paddingTop: 4 }}>No saved events yet. Bookmark events from the home feed.</div>
+        )}
+        {savedStatus === "ready" && savedEvents.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {savedEvents.map((s) => {
+              const ev = s.event ?? s;
+              const eventId = ev.id ?? s.event_id;
+              return (
+                <div
+                  key={eventId}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, padding: "12px 14px", borderRadius: 10,
+                    border: "1px solid var(--color-line)",
+                    background: "rgba(245,166,35,0.05)",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {ev.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2 }}>
+                      {formatTime(ev.starts_at)}{ev.price_cents != null ? ` · ${formatPrice(ev.price_cents)}` : ""}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleUnsave(eventId)}
+                    style={{
+                      flexShrink: 0, background: "none", border: "1px solid var(--color-line)",
+                      borderRadius: 8, padding: "5px 10px", fontSize: 12,
+                      color: "var(--color-muted)", cursor: "pointer",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
+      <Divider />
+
+      {/* My Bookings */}
+      <Section label="My Bookings">
+        <div
+          onClick={() => navigate("/bookings")}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 0", cursor: "pointer", borderBottom: "1px solid var(--color-line)",
+          }}
+        >
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink)" }}>View reserved events</span>
+          <span style={{ color: "var(--color-muted)", fontSize: 16 }}>→</span>
+        </div>
       </Section>
 
       <Divider />

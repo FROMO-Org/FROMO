@@ -5,10 +5,11 @@ import { getMyOrganisations, getOrganisationDashboard, createOrganisation, updat
 import { USER_TYPE } from "../lib/config";
 
 export default function PartnerLayout() {
-  const { signOut, user, profile, reloadProfile } = useAuth();
+  const { signOut, user, profile, reloadProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isSettings = pathname === "/partner/settings";
+  const isBookings = pathname === "/partner/bookings";
   const [orgData, setOrgData] = useState(null);
   const [loadState, setLoadState] = useState("loading");
   const [orgName, setOrgName] = useState("");
@@ -36,6 +37,8 @@ export default function PartnerLayout() {
       .catch(() => alive && setLoadState("error"));
     return () => { alive = false; };
   }, []);
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleSignOut() {
     await signOut();
@@ -70,12 +73,11 @@ export default function PartnerLayout() {
     ?? user?.email
     ?? "Partner";
 
-  // Gate: only confirmed organisers see the dashboard layout.
-  // Everyone else (null profile, student, admin) is blocked here.
+  if (!authLoading && !user) return <Navigate to="/login" replace />;
+
   if (profile?.user_type !== USER_TYPE.ORGANISER) {
-    // org check finished with no org → definitely not an organiser, go home
     if (loadState === "no-org") return <Navigate to="/" replace />;
-    // still loading (or org found but user_type stale — reloadProfile in flight) → spinner
+    // still loading or user_type stale while reloadProfile is in flight
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontSize: 14 }}>
         Loading…
@@ -83,69 +85,93 @@ export default function PartnerLayout() {
     );
   }
 
-  return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* Sidebar */}
-      <aside style={{ width: 240, background: "#111", color: "#fff", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        {/* Brand */}
-        <div style={{ padding: "28px 24px 24px" }}>
-          <div style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em" }}>
-            FROMO
-          </div>
-          <div style={{ color: "#777", fontSize: 12, marginTop: 3 }}>Partner</div>
-        </div>
+  const sidebarContent = (
+    <>
+      <div style={{ padding: "28px 24px 24px" }}>
+        <NavLink to="/" onClick={() => setMobileMenuOpen(false)} style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
+          FROMO
+        </NavLink>
+        <div style={{ color: "#777", fontSize: 12, marginTop: 3 }}>Partner</div>
+      </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, padding: "0 12px" }}>
-          <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" />
-          <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" />
-          <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" />
+      <nav style={{ flex: 1, padding: "0 12px" }}>
+        <SideNavLink to="/partner" end icon={<ListIcon />} label="My Listings" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/analytics" icon={<BarIcon />} label="Analytics" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/bookings" icon={<TicketIcon />} label="My Bookings" onClick={() => setMobileMenuOpen(false)} />
+        <SideNavLink to="/partner/settings" icon={<GearIcon />} label="Settings" onClick={() => setMobileMenuOpen(false)} />
 
-          {/* Back to discover feed */}
-          <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
-            <NavLink
-              to="/"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 7,
-                color: "#555",
-                textDecoration: "none",
-                fontSize: 13,
-                fontWeight: 500,
-                transition: "color 0.12s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
-            >
-              <HomeIcon />
-              Back to Discover
-            </NavLink>
-          </div>
-        </nav>
-
-        {/* User info */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {displayName}
-          </div>
-          <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
-            {profile?.user_type
-              ? profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1) + " Account"
-              : "Account"}
-          </div>
-          <button
-            onClick={handleSignOut}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 8, padding: 0 }}
+        <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 12 }}>
+          <NavLink
+            to="/"
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 7, color: "#555", textDecoration: "none", fontSize: 13, fontWeight: 500 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#aaa"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
           >
-            Log out
-          </button>
+            <HomeIcon />
+            Back to Discover
+          </NavLink>
         </div>
+      </nav>
+
+      <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {displayName}
+        </div>
+        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
+          {profile?.user_type
+            ? profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1) + " Account"
+            : "Account"}
+        </div>
+        <button onClick={handleSignOut} style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontSize: 11, marginTop: 8, padding: 0 }}>
+          Log out
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+
+      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 240, background: "#111", color: "#fff" }}>
+        {sidebarContent}
       </aside>
 
-      {/* Main */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed top-0 left-0 h-full z-50 flex flex-col lg:hidden transition-transform duration-200 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        style={{ width: 240, background: "#111", color: "#fff" }}
+      >
+        <button
+          onClick={() => setMobileMenuOpen(false)}
+          style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "#777", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
+        >
+          ✕
+        </button>
+        {sidebarContent}
+      </aside>
+
+      <div className="flex flex-col flex-1 overflow-hidden">
+
+        <header className="flex lg:hidden items-center justify-between px-4 py-3 flex-shrink-0" style={{ background: "#111", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <NavLink to="/" style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: 20, color: "#fff", letterSpacing: "-0.02em", textDecoration: "none" }}>
+            FROMO
+          </NavLink>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}
+            aria-label="Open menu"
+          >
+            <HamburgerIcon />
+          </button>
+        </header>
+
       <main style={{ flex: 1, overflowY: "auto", background: "var(--color-paper)" }}>
         {loadState === "loading" && !isSettings && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontSize: 14 }}>
@@ -200,17 +226,29 @@ export default function PartnerLayout() {
             Couldn't load dashboard — is the backend running?
           </div>
         )}
-        {(loadState === "ready" || isSettings) && <Outlet context={{ orgData }} />}
+        {(loadState === "ready" || isSettings || isBookings) && <Outlet context={{ orgData }} />}
       </main>
+      </div>
     </div>
   );
 }
 
-function SideNavLink({ to, end, icon, label }) {
+function HamburgerIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+function SideNavLink({ to, end, icon, label, onClick }) {
   return (
     <NavLink
       to={to}
       end={end}
+      onClick={onClick}
       style={({ isActive }) => ({
         display: "flex",
         alignItems: "center",
@@ -261,6 +299,14 @@ function HomeIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function TicketIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
     </svg>
   );
 }

@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #FCFBF8;
+  color: #14110E;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS Safari auto-zooms inputs under 16px on focus — keep them at 16px. */
+input, select, textarea { font-size: 16px; }
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(245,166,35,.55); }
+  70% { box-shadow: 0 0 0 9px rgba(245,166,35,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,166,35,0); }
+}
+.live-dot {
+  width: 9px; height: 9px; border-radius: 9999px;
+  background: #F5A623; display: inline-block;
+  animation: pulse 2.2s ease-out infinite;
+}
+
+.fromo-pin .dot {
+  width: 16px; height: 16px; border-radius: 9999px;
+  border: 2.5px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.35);
+}
+.leaflet-container { background: #eef0f2; }
+
+/* ── Header sizing (bypasses Tailwind JIT scanning issues) ── */
+.site-header {
+  padding: 1.6rem 5rem;
+}
+.site-header-brand {
+  font-size: 2.8rem;
+  line-height: 1;
+}
+.site-header-nav a,
+.site-header-nav span {
+  font-size: 1.4rem;
+}
+.site-header-btn {
+  font-size: 1.1rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 12px;
+}
+
+/* ── Login / Signup form sizing ── */
+.auth-heading {
+  font-size: 3rem;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.auth-sub {
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+.auth-label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+.auth-input {
+  font-size: 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+}
+.auth-submit {
+  font-size: 1.1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-top: 0.5rem;
+}
+.auth-footer {
+  font-size: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+}

@@ -27,35 +27,27 @@ export function AuthProvider({ children }) {
 
   async function loadProfile() {
     try {
-      const p = await getMyProfile();
-      setProfile(p);
-      return p;
+      setProfile(await getMyProfile());
     } catch {
+      // 404 → the user has a Supabase account but no profile row yet.
+      // The UI can route them to a "finish your profile" step.
       setProfile(null);
-      return null;
     }
   }
 
+  // signUp → create the profile row (keyed to the Supabase user id) → set role.
+  // POST /profiles/me only takes full_name, so user_type goes in a follow-up PATCH.
   async function signUp({ email, password, fullName, userType }) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName, user_type: userType } },
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
 
+    // If "Confirm email" is ON in Supabase, there's no session yet — we can't
+    // create the profile until the user confirms and signs in. For the sprint,
+    // turn that setting off so this runs immediately.
     if (data.session) {
-      try {
-        await createMyProfile(fullName);
-      } catch (err) {
-        if (err?.response?.status !== 409) console.error("createMyProfile:", err);
-      }
-      try {
-        const updated = await updateMyProfile({ user_type: userType });
-        setProfile(updated);
-      } catch {
-        try { setProfile(await getMyProfile()); } catch { setProfile(null); }
-      }
+      await createMyProfile(fullName);
+      const updated = await updateMyProfile({ user_type: userType });
+      setProfile(updated);
     }
     return data;
   }
@@ -66,8 +58,8 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw error;
-    const p = await loadProfile();
-    return { ...data, profile: p };
+    await loadProfile();
+    return data;
   }
 
   async function signOut() {
