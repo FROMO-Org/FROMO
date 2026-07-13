@@ -142,7 +142,8 @@ def create_event(
         spots_remaining=body.capacity,
         category=body.category,
         description=body.description,
-        image_url=body.image_url
+        url=body.url,
+        image_url=body.image_url,
     )
 
     session.add(event)

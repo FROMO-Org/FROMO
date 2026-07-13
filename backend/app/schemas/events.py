@@ -13,7 +13,8 @@ class PublicEventResponse(OrmSchema):
     id: UUID
     title: str
     description: str | None
-    ai_summary: str | None = None
+    ai_summary: str | None
+    url: str | None
     category: str | None
     price_cents: int
     original_price_cents: int | None
@@ -49,6 +50,7 @@ class CreateEventBody(ApiSchema):
     price_cents: int = Field(default=0, ge=0)
     capacity: int | None = Field(default=None, gt=0)
     description: str | None = None
+    url: str | None = None
     category: str | None = None
     image_url: str | None = None
 
@@ -62,6 +64,7 @@ class CreateEventBody(ApiSchema):
 class UpdateEventBody(ApiSchema):
     title: str | None = Field(default=None, min_length=1)
     description: str | None = None
+    url: str | None = None
     category: str | None = None
     price_cents: int | None = Field(default=None, ge=0)
     capacity: int | None = Field(default=None, gt=0)

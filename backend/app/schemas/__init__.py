@@ -10,6 +10,7 @@ from app.schemas.events import (
     UpdateEventBody,
 )
 from app.schemas.bookings import BookingResponse, MyBookingResponse, CreateBookingBody
+from app.schemas.feedback import FeedbackRating, FeedbackResponse, CreateFeedbackBody
 from app.schemas.payments import (
     PaymentStatus,
     PaymentResponse,
@@ -40,6 +41,8 @@ __all__ = [
     "EventListItemResponse", "CreateEventBody", "UpdateEventBody",
     # bookings
     "BookingResponse", "MyBookingResponse", "CreateBookingBody",
+    # feedback
+    "FeedbackRating", "FeedbackResponse", "CreateFeedbackBody",
     # payments
     "PaymentStatus", "PaymentResponse", "CreateCheckoutSessionBody",
     "CheckoutSessionResponse", "WebhookResponse",
