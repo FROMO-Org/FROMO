@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { getEvent, getVenue, createBooking, cancelBooking, getMyBookings } from "../lib/api.js";
+import { getEvent, getVenue } from "../lib/api.js";
 import { fetchEventImage } from "../lib/ticketmaster.js";
 import { googleMapsUrl } from "../lib/directions.js";
-import { useAuth } from "../context/AuthContext.jsx";
 import { formatPrice } from "../lib/format.js";
 
 function formatEventDate(iso) {
@@ -26,11 +25,28 @@ function BackIcon() {
   );
 }
 
+function QrPlaceholderIcon() {
+  return (
+    <svg viewBox="0 0 100 100" width="96" height="96" fill="none" stroke="var(--color-muted)" strokeWidth="1.5">
+      <rect x="10" y="10" width="28" height="28" rx="3" />
+      <rect x="20" y="20" width="8" height="8" fill="var(--color-muted)" stroke="none" />
+      <rect x="62" y="10" width="28" height="28" rx="3" />
+      <rect x="72" y="20" width="8" height="8" fill="var(--color-muted)" stroke="none" />
+      <rect x="10" y="62" width="28" height="28" rx="3" />
+      <rect x="20" y="72" width="8" height="8" fill="var(--color-muted)" stroke="none" />
+      <rect x="52" y="52" width="10" height="10" />
+      <rect x="68" y="52" width="10" height="10" />
+      <rect x="52" y="68" width="10" height="10" />
+      <rect x="68" y="68" width="18" height="10" />
+      <rect x="52" y="84" width="10" height="6" />
+    </svg>
+  );
+}
+
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state: locationState } = useLocation();
-  const { user } = useAuth();
 
   const preloaded = locationState?.event;
 
@@ -38,10 +54,6 @@ export default function EventDetail() {
   const [venue, setVenue] = useState(preloaded?.venue ?? null);
   const [imageUrl, setImageUrl] = useState(preloaded?.image_url ?? null);
   const [loading, setLoading] = useState(true);
-
-  const [booking, setBooking] = useState(null);
-  const [bookingState, setBookingState] = useState("idle");
-  const [bookingError, setBookingError] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -77,44 +89,6 @@ export default function EventDetail() {
     return () => { alive = false; };
   }, [id]);
 
-  useEffect(() => {
-    if (!user) return;
-    getMyBookings()
-      .then((rows) => {
-        const row = rows.find((r) => (r.event?.id ?? r.booking?.event_id) === id);
-        setBooking(row?.booking ?? null);
-      })
-      .catch(() => {});
-  }, [user, id]);
-
-  async function handleBook() {
-    if (!user) { navigate("/login"); return; }
-    setBookingState("loading");
-    setBookingError(null);
-    try {
-      const b = await createBooking(id);
-      setBooking(b);
-      setBookingState("success");
-    } catch (err) {
-      setBookingError(err?.response?.data?.detail ?? "Couldn't book this event.");
-      setBookingState("error");
-    }
-  }
-
-  async function handleCancel() {
-    if (!booking) return;
-    setBookingState("loading");
-    setBookingError(null);
-    try {
-      await cancelBooking(booking.id);
-      setBooking(null);
-      setBookingState("idle");
-    } catch (err) {
-      setBookingError(err?.response?.data?.detail ?? "Couldn't cancel.");
-      setBookingState("error");
-    }
-  }
-
   if (loading && !preloaded) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "var(--color-muted)", fontSize: 14 }}>
@@ -126,19 +100,15 @@ export default function EventDetail() {
   const ev = event ?? preloaded;
   if (!ev) return null;
 
-  const isFree = ev.price_cents === 0;
-  const isBooked = booking?.status === "confirmed";
-  const noSpots = ev.spots_remaining != null && ev.spots_remaining === 0;
-  const hasEnded = ev.ends_at ? new Date(ev.ends_at) <= new Date() : new Date(ev.starts_at) <= new Date();
   const dateStr = formatEventDate(ev.starts_at);
   const startTime = formatEventTime(ev.starts_at);
   const endTime = formatEventTime(ev.ends_at);
   const timeStr = [startTime, endTime].filter(Boolean).join(" – ");
   const dirUrl = venue ? googleMapsUrl({ lat: venue.lat, lng: venue.lng }) : null;
-
+  const hasDiscount = ev.original_price_cents != null && ev.original_price_cents > ev.price_cents;
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--color-paper)", paddingBottom: 100 }}>
+    <main style={{ minHeight: "100vh", background: "var(--color-paper)", paddingBottom: 60 }}>
       <div style={{
         position: "sticky", top: 0, zIndex: 100,
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -170,148 +140,159 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px 0" }}>
-
-        {ev.category && (
-          <div style={{ display: "inline-block", background: "rgba(245,166,35,0.15)", color: "#F5A623", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
-            {ev.category}
-          </div>
-        )}
-
-        <h1 style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: "clamp(22px, 5vw, 38px)", lineHeight: 1.1, letterSpacing: "-0.02em", color: "var(--color-ink)", margin: "0 0 12px" }}>
-          {ev.title}
-        </h1>
-
-        {ev.description && (
-          <p style={{ fontSize: 14, lineHeight: 1.7, color: "var(--color-muted)", margin: "0 0 20px" }}>
-            {ev.description}
-          </p>
-        )}
-
-        {(dateStr || timeStr) && (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
-            <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📅</span>
-            <div>
-              {dateStr && <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{dateStr}</div>}
-              {timeStr && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{timeStr}</div>}
+      <div
+        className="grid grid-cols-1 lg:grid-cols-[1fr_320px]"
+        style={{ maxWidth: 680, margin: "0 auto", gap: 32, padding: "20px 16px 0" }}
+      >
+        {/* LEFT — event info & summary */}
+        <div>
+          {ev.category && (
+            <div style={{ display: "inline-block", background: "rgba(245,166,35,0.15)", color: "#F5A623", borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>
+              {ev.category}
             </div>
-          </div>
-        )}
+          )}
 
-        {venue && (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
-            <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📍</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{venue.name}</div>
-              {venue.address && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{venue.address}</div>}
-            </div>
-            {dirUrl && (
-              <a
-                href={dirUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ flexShrink: 0, background: "#F5A623", color: "#231a09", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
-              >
-                Directions
-              </a>
-            )}
-          </div>
-        )}
-
-        {ev.spots_remaining != null && (
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>👥</span>
-            <div>
-              <span style={{ fontWeight: 600, fontSize: 15, color: ev.spots_remaining < 10 ? "#E53935" : "var(--color-ink)" }}>
-                {ev.spots_remaining} spots left
-              </span>
-              {ev.capacity != null && (
-                <span style={{ fontSize: 13, color: "var(--color-muted)" }}> of {ev.capacity} total</span>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 12 }}>
+            <h1 style={{ fontFamily: '"Bricolage Grotesque", Inter, system-ui', fontWeight: 800, fontSize: "clamp(22px, 5vw, 38px)", lineHeight: 1.1, letterSpacing: "-0.02em", color: "var(--color-ink)", margin: 0 }}>
+              {ev.title}
+            </h1>
+            <div style={{ flexShrink: 0, textAlign: "right" }}>
+              {hasDiscount && (
+                <div style={{ fontSize: 14, color: "var(--color-muted)", textDecoration: "line-through" }}>
+                  {formatPrice(ev.original_price_cents)}
+                </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {ev.ai_summary && (
-          <>
-            <div style={{ borderTop: "1px solid var(--color-line)", margin: "22px 0" }} />
-            <div style={{ marginBottom: 24 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--color-ink)", marginBottom: 12, letterSpacing: "-0.01em" }}>
-                AI Summary
-              </h2>
-              <div style={{
-                background: "rgba(245,166,35,0.08)",
-                border: "1px solid rgba(245,166,35,0.25)",
-                borderRadius: 14,
-                padding: "16px 18px",
-                fontSize: 14,
-                lineHeight: 1.7,
-                color: "var(--color-ink)",
-              }}>
-                {ev.ai_summary}
+              <div style={{ fontSize: 26, fontWeight: 800, color: "#F5A623", lineHeight: 1.2 }}>
+                {formatPrice(ev.price_cents)}
               </div>
             </div>
-          </>
-        )}
-      </div>
-
-      <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
-        background: "var(--color-paper)",
-        borderTop: "1px solid var(--color-line)",
-        padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
-      }}>
-        <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ flexShrink: 0, minWidth: 56 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--color-ink)", lineHeight: 1 }}>
-            {formatPrice(ev.price_cents)}
           </div>
-          {ev.original_price_cents != null && ev.original_price_cents > ev.price_cents && (
-            <div style={{ fontSize: 12, color: "var(--color-muted)", textDecoration: "line-through", marginTop: 2 }}>
-              {formatPrice(ev.original_price_cents)}
+
+          {ev.description && (
+            <p style={{ fontSize: 14, lineHeight: 1.7, color: "var(--color-muted)", margin: "0 0 20px" }}>
+              {ev.description}
+            </p>
+          )}
+
+          {(dateStr || timeStr) && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+              <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📅</span>
+              <div>
+                {dateStr && <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{dateStr}</div>}
+                {timeStr && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{timeStr}</div>}
+              </div>
             </div>
           )}
-        </div>
 
-        <div style={{ flex: 1 }}>
-          {bookingError && (
-            <div style={{ fontSize: 12, color: "#E53935", marginBottom: 6 }}>{bookingError}</div>
+          {venue && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16 }}>
+              <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>📍</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--color-ink)" }}>{venue.name}</div>
+                {venue.address && <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>{venue.address}</div>}
+              </div>
+              {dirUrl && (
+                <a
+                  href={dirUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ flexShrink: 0, background: "#F5A623", color: "#231a09", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                >
+                  Directions
+                </a>
+              )}
+            </div>
           )}
 
-          {hasEnded ? (
-            <button disabled style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#888", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
-              Event has ended
-            </button>
-          ) : isBooked ? (
-            <button
-              onClick={handleCancel}
-              disabled={bookingState === "loading"}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, background: "none", border: "2px solid #E53935", color: "#E53935", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
-            >
-              {bookingState === "loading" ? "Cancelling…" : "Cancel booking"}
-            </button>
-          ) : !user ? (
-            <button
-              onClick={() => navigate("/login")}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#F5A623", border: "none", color: "#231a09", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
-            >
-              Log in to reserve a spot
-            </button>
-          ) : isFree ? (
-            <button
-              onClick={handleBook}
-              disabled={bookingState === "loading" || noSpots}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, background: noSpots ? "#888" : "#F5A623", border: "none", color: noSpots ? "#fff" : "#231a09", fontWeight: 700, fontSize: 15, cursor: noSpots ? "not-allowed" : "pointer", opacity: bookingState === "loading" ? 0.7 : 1 }}
-            >
-              {bookingState === "loading" ? "Booking…" : noSpots ? "Sold out" : "Reserve a spot"}
-            </button>
-          ) : (
-            <button disabled style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#888", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "not-allowed" }}>
-              Payment coming soon
-            </button>
+          {ev.spots_remaining != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>👥</span>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 15, color: ev.spots_remaining < 10 ? "#E53935" : "var(--color-ink)" }}>
+                  {ev.spots_remaining} spots left
+                </span>
+                {ev.capacity != null && (
+                  <span style={{ fontSize: 13, color: "var(--color-muted)" }}> of {ev.capacity} total</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {ev.ai_summary && (
+            <>
+              <div style={{ borderTop: "1px solid var(--color-line)", margin: "22px 0" }} />
+              <div style={{ marginBottom: 24 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--color-ink)", marginBottom: 12, letterSpacing: "-0.01em" }}>
+                  AI Summary
+                </h2>
+                <div style={{
+                  background: "rgba(245,166,35,0.08)",
+                  border: "1px solid rgba(245,166,35,0.25)",
+                  borderRadius: 14,
+                  padding: "16px 18px",
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  color: "var(--color-ink)",
+                }}>
+                  {ev.ai_summary}
+                </div>
+              </div>
+            </>
           )}
         </div>
-        </div>
+
+        {/* RIGHT — reserve via mobile app */}
+        <aside style={{ marginBottom: 32 }}>
+          <div style={{
+            background: "rgba(245,166,35,0.1)",
+            border: "1px solid rgba(245,166,35,0.3)",
+            borderRadius: 16,
+            padding: "18px 20px",
+            marginBottom: 16,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--color-ink)", marginBottom: 6 }}>
+              How reserving works
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--color-muted)" }}>
+              Scan the QR code with your phone to reserve your spot or proceed to payment in the FROMO app.
+            </div>
+          </div>
+
+          <div style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-line)",
+            borderRadius: 16,
+            padding: "28px 20px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 14,
+          }}>
+            <div style={{
+              width: 180,
+              height: 180,
+              borderRadius: 12,
+              border: "2px dashed var(--color-line)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+            }}>
+              <QrPlaceholderIcon />
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                QR code coming soon
+              </span>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "var(--color-ink)" }}>Reserve on Mobile</div>
+              <div style={{ fontSize: 13, color: "var(--color-muted)", marginTop: 2 }}>
+                Scan to reserve your spot
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </main>
   );
