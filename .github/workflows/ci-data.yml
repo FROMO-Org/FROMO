@@ -1,7 +1,8 @@
-# Installs Python deps, validates the committed ML artifacts (model.txt, norm_table.csv,
-# feature_cols.json) via process.py --dry-run, then runs an end-to-end smoke test against
-# a small fixture CSV. Does NOT run a full production prediction — the real features CSV
-# is ~63MB and gitignored, so it never exists in CI.
+# Installs Python deps and runs the predictions.py smoke tests — validates the
+# committed ML artifacts (model.txt, norm_table.csv, feature_cols.json) and
+# the predict -> apply_norm -> compute_level path against a small in-memory
+# fixture. Does NOT run the real daily pipeline (no weather fetch, no
+# Supabase write) — that happens on the scheduled daily-predictions.yml job.
 
 name: Data & ML CI
 
@@ -12,7 +13,7 @@ on:
       - "data/**"                          # Trigger when data/ML code or artifacts change
       - ".github/workflows/ci-data.yml"    # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main", "busyness_model"]   # Run on PRs targeting main or busyness_model
+    branches: ["main"]
 
 jobs:
   validate:
@@ -31,13 +32,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r data/requirements.txt
 
-      - name: Validate ML artifacts (dry run)
-        # Loads model.txt as a LightGBM booster, checks norm_table.csv has the expected
-        # columns, and validates feature_cols.json — all without the large features CSV.
-        run: python data/process.py --dry-run
-
-      - name: Run smoke test
-        # Runs the real predict() path against a 6-row fixture (data/tests/fixtures/) and
-        # checks the output schema and value ranges — catches join/feature-ordering bugs
-        # that --dry-run can't see.
+      - name: Run smoke tests
+        # Validates model.txt/norm_table.csv/feature_cols.json load correctly,
+        # then runs predict() -> apply_norm() -> compute_level() against a
+        # small fixture and checks the output schema and value ranges.
         run: python -m pytest data/tests/ -v

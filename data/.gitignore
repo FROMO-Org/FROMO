@@ -14,3 +14,7 @@ mar_2026_deviation_predictions.csv
 .DS_Store
 __pycache__/
 *.pyc
+
+# predictions.py's local Open-Meteo request cache and real env file
+.cache*
+.env
