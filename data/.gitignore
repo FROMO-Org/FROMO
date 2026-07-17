@@ -10,6 +10,9 @@ mar_2026_deviation_predictions.csv
 !norm_table.csv
 !feature_cols.json
 
+# Secrets — never commit
+.env
+
 # OS / editor noise
 .DS_Store
 __pycache__/
