@@ -64,7 +64,11 @@ export async function getDiscoverFeed({
   limit = FEED_LIMIT,
   all = false,
 } = {}) {
-  const locationParams = all ? {} : { lat, lng, radius_km };
+  // Non-geo /events/ query sorts by starts_at ascending with a hard limit — without
+  // this, long-past seed events can fill the whole page before any current one appears.
+  const locationParams = all
+    ? { starts_after: new Date().toISOString() }
+    : { lat, lng, radius_km };
   const [items, venues] = await Promise.all([
     listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit }),
     listVenues({ limit: 100 }),

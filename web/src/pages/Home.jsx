@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import L from "leaflet";
 import EventCard from "../components/EventCard.jsx";
 import EventMap from "../components/EventMap.jsx";
 import { getDiscoverFeed, getBusynessNearby, getSavedEvents, saveEvent, unsaveEvent } from "../lib/api.js";
 import { fetchRoute, googleMapsUrl } from "../lib/directions.js";
 import { DEFAULT_CENTER } from "../lib/config.js";
 import { useAuth } from "../context/AuthContext.jsx";
+
+const NEAREST_AREA_CAP_METRES = 400;
+
+function hasEventEnded(e) {
+  const end = e.ends_at ? new Date(e.ends_at) : new Date(e.starts_at);
+  return end <= new Date();
+}
 
 export default function Home() {
   const { user, profile } = useAuth();
@@ -50,6 +58,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    getUserLocation().then(setUserLoc);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     getSavedEvents()
       .then((data) => {
@@ -61,9 +73,9 @@ export default function Home() {
 
   function scoreToLevel(score) {
     if (score == null) return null;
-    if (score < 0.33) return "not busy";
-    if (score < 0.66) return "as usual";
-    return "busier";
+    if (score >= 0.67) return "busier";
+    if (score <= 0.33) return "not busy";
+    return "as usual";
   }
 
   const getNearestBusynessLevel = useMemo(() => {
@@ -72,19 +84,23 @@ export default function Home() {
       .map((item) => ({
         lat: Number(item.area.lat),
         lng: Number(item.area.lng),
+        radiusMetres: item.area.radius_metres ?? 400,
         level: item.score.level ?? scoreToLevel(item.score.score),
       }))
       .filter((item) => item.level != null);
 
     return (venueLat, venueLng) => {
       if (!areas.length || venueLat == null || venueLng == null) return null;
+      const venuePoint = L.latLng(Number(venueLat), Number(venueLng));
+
       let nearest = null;
-      let minDist = Infinity;
+      let nearestMetres = Infinity;
       for (const area of areas) {
-        const d = Math.hypot(area.lat - Number(venueLat), area.lng - Number(venueLng));
-        if (d < minDist) { minDist = d; nearest = area.level; }
+        const metres = venuePoint.distanceTo(L.latLng(area.lat, area.lng));
+        if (metres <= area.radiusMetres) return area.level;
+        if (metres < nearestMetres) { nearestMetres = metres; nearest = area.level; }
       }
-      return nearest;
+      return nearestMetres <= NEAREST_AREA_CAP_METRES ? nearest : null;
     };
   }, [busynessAreas]);
 
@@ -114,27 +130,29 @@ export default function Home() {
     }
   }
 
+  const activeEvents = useMemo(() => events.filter((e) => !hasEventEnded(e)), [events]);
+
   const categories = useMemo(() => {
     const seen = new Set();
-    events.forEach((e) => {
+    activeEvents.forEach((e) => {
       const cat = e.category || e.venue?.category;
       if (cat) seen.add(cat.toLowerCase());
     });
     return Array.from(seen).sort();
-  }, [events]);
+  }, [activeEvents]);
 
   const filteredEvents = useMemo(() => {
-    if (activeCategory === "all") return events;
-    return events.filter((e) => {
+    if (activeCategory === "all") return activeEvents;
+    return activeEvents.filter((e) => {
       const cat = (e.category || e.venue?.category || "").toLowerCase();
       return cat === activeCategory;
     });
-  }, [events, activeCategory]);
+  }, [activeEvents, activeCategory]);
 
   const focus = useMemo(() => {
-    const e = events.find((x) => x.id === selectedId);
+    const e = activeEvents.find((x) => x.id === selectedId);
     return e?.venue ? { lat: e.venue.lat, lng: e.venue.lng } : null;
-  }, [selectedId, events]);
+  }, [selectedId, activeEvents]);
 
   async function handleNearbyMode() {
     if (feedMode === "nearby") return;
@@ -182,19 +200,20 @@ export default function Home() {
         <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 font-mono text-[13px] text-muted">
           <span className="live-dot" aria-hidden="true" />
           {feedMode === "nearby" ? "NEARBY · LIVE · 1KM" : "MANHATTAN · LIVE · ALL"}
-          {status === "ready" ? ` · ${events.length} EVENTS` : ""}
+          {status === "ready" ? ` · ${activeEvents.length} EVENTS` : ""}
         </div>
       </section>
 
       <div className="px-10 pb-8 xl:px-16">
         <div className="relative h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
           <EventMap
-            events={events}
+            events={activeEvents}
             busynessAreas={busynessAreas}
             getNearestBusynessLevel={getNearestBusynessLevel}
             focus={focus}
             route={route}
             onSelect={setSelectedId}
+            userLocation={userLoc}
           />
           {(
             <div style={{

@@ -50,7 +50,24 @@ function FlyTo({ focus }) {
   return null;
 }
 
-export default function EventMap({ events, busynessAreas = [], getNearestBusynessLevel, focus, route, onSelect }) {
+function userLocationIcon() {
+  const svg = `<div style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45));">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22">
+      <circle cx="11" cy="11" r="9" fill="#1D4ED8" fill-opacity="0.25"/>
+      <circle cx="11" cy="11" r="6" fill="#1D4ED8" stroke="white" stroke-width="2.5"/>
+    </svg>
+  </div>`;
+
+  return L.divIcon({
+    className: "",
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -11],
+    html: svg,
+  });
+}
+
+export default function EventMap({ events, busynessAreas = [], getNearestBusynessLevel, focus, route, onSelect, userLocation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isDark } = useTheme();
@@ -136,6 +153,12 @@ export default function EventMap({ events, busynessAreas = [], getNearestBusynes
           data={route}
           style={{ color: "#14110E", weight: 4, opacity: 0.8 }}
         />
+      )}
+
+      {userLocation && (
+        <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon()} zIndexOffset={1000}>
+          <Popup>You are here</Popup>
+        </Marker>
       )}
 
       <FlyTo focus={focus} />
