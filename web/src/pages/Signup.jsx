@@ -23,7 +23,7 @@ export default function Signup() {
     try {
       const data = await signUp({ email, password, fullName, userType });
       if (data.session) {
-        navigate("/");
+        navigate(userType === USER_TYPE.ORGANISER ? "/partner" : "/");
       } else {
         setNotice("Check your email to confirm your account, then log in.");
       }

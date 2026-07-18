@@ -4,7 +4,7 @@ name: Backend CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "test"]
     paths:
       - "backend/**"                           # Trigger when backend code changes
       - ".github/workflows/ci-backend.yml"     # Also trigger when this workflow file itself changes

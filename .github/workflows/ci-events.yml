@@ -1,0 +1,40 @@
+# Tests data/events/ on every push/PR touching it. Runs --dry-run (validates
+# config-loading and the Manhattan polygon fetch — no secrets needed) plus
+# the unit test suite. Does NOT run a real ingestion — that writes to the
+# production Supabase DB and is handled by the scheduled events-ingest.yml.
+
+name: Events Ingest CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "data/events/**"
+      - ".github/workflows/ci-events.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "data/events/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: data/events/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r data/events/requirements.txt
+
+      - name: Validate config loading (dry run)
+        run: python data/events/ticketmaster_ingest.py --dry-run
+
+      - name: Run unit tests
+        run: python -m pytest data/events/tests/ -v
