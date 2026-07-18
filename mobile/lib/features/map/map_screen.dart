@@ -1012,6 +1012,41 @@ class _BottomPanel extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (const bool.fromEnvironment('USE_DEMO_LOCATION'))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: eventsAsync.when(
+                        data: (items) {
+                          final filteredCount = applyFilter(items).length;
+                          return Text(
+                            'Demo debug: loaded ${items.length}, visible $filteredCount',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: FromoColors.gray500,
+                            ),
+                          );
+                        },
+                        loading: () => const Text(
+                          'Demo debug: loading events...',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: FromoColors.gray500,
+                          ),
+                        ),
+                        error: (error, _) => Text(
+                          'Demo debug: events error $error',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: FromoColors.gray500,
+                          ),
+                        ),
+                      ),
+                    ),
                   Divider(height: 1, color: FromoColors.gray200),
                 ],
               ),
