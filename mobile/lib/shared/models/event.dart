@@ -3,12 +3,16 @@ class VenueSummary {
   final String name;
   final double lat;
   final double lng;
+  final String? category;
+  final bool isAccessible;
 
   const VenueSummary({
     required this.id,
     required this.name,
     required this.lat,
     required this.lng,
+    this.category,
+    this.isAccessible = false,
   });
 
   factory VenueSummary.fromJson(Map<String, dynamic> j) => VenueSummary(
@@ -16,6 +20,17 @@ class VenueSummary {
     name: j['name'] as String,
     lat: (j['lat'] as num).toDouble(),
     lng: (j['lng'] as num).toDouble(),
+    category: j['category'] as String?,
+    isAccessible: j['is_accessible'] as bool? ?? false,
+  );
+
+  VenueSummary copyWith({String? category, bool? isAccessible}) => VenueSummary(
+    id: id,
+    name: name,
+    lat: lat,
+    lng: lng,
+    category: category ?? this.category,
+    isAccessible: isAccessible ?? this.isAccessible,
   );
 }
 
@@ -136,5 +151,11 @@ class EventListItem {
     event: Event.fromJson(j['event'] as Map<String, dynamic>),
     distanceKm: (j['distance_km'] as num?)?.toDouble(),
     venue: VenueSummary.fromJson(j['venue'] as Map<String, dynamic>),
+  );
+
+  EventListItem copyWith({VenueSummary? venue}) => EventListItem(
+    event: event,
+    distanceKm: distanceKm,
+    venue: venue ?? this.venue,
   );
 }

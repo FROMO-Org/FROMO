@@ -13,8 +13,10 @@ final router = GoRouter(
   initialLocation: '/map',
   redirect: (context, state) {
     final loggedIn = Supabase.instance.client.auth.currentUser != null;
-    final onAuth = state.uri.path == '/login' || state.uri.path == '/register';
-    if (!loggedIn && !onAuth) return '/login';
+    final path = state.uri.path;
+    final onAuth = path == '/login' || path == '/register';
+    final publicRoute = path == '/map' || path.startsWith('/events/');
+    if (!loggedIn && !onAuth && !publicRoute) return '/login';
     if (loggedIn && onAuth) return '/map';
     return null;
   },
@@ -37,9 +39,8 @@ final router = GoRouter(
         GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
         GoRoute(
           path: '/events/:eventId',
-          builder: (_, state) => EventDetailScreen(
-            eventId: state.pathParameters['eventId']!,
-          ),
+          builder: (_, state) =>
+              EventDetailScreen(eventId: state.pathParameters['eventId']!),
         ),
       ],
     ),

@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
@@ -76,6 +78,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   Future<void> _toggleSave(String eventId) async {
+    if (!_requireLogin('Log in to save events')) return;
     final saved =
         ref.read(savedEventIdsProvider).valueOrNull?.contains(eventId) ?? false;
     final actions = ref.read(eventActionsProvider);
@@ -93,6 +96,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   Future<void> _book(Event event) async {
+    if (!_requireLogin('Log in to book this event')) return;
     if (_booking || _booked) return;
     setState(() => _booking = true);
     try {
@@ -153,6 +157,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  bool _requireLogin(String message) {
+    if (Supabase.instance.client.auth.currentUser != null) return true;
+    _snack(message);
+    context.go('/login');
+    return false;
   }
 }
 

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,22 +9,17 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
 import 'map_providers.dart';
 
-const _filterCategories = [
-  'All',
-  'Food',
-  'Music',
-  'Sports',
-  'Nightlife',
-  'Outdoors',
-  'Study',
-];
+const _allCategoryFilter = 'All';
 const _searchRadiusKm = 1.0;
 const _initialMapZoom = 15.4;
 const _focusedMapZoom = 16.2;
+const _singleEventZoom = 16.1;
+const _midClusterZoom = 14.5;
 
 class _CrowdBadgeData {
   final String label;
@@ -49,11 +45,45 @@ class _PinLayout {
   });
 }
 
+class _EventCluster {
+  final LatLng center;
+  final List<EventListItem> items;
+
+  const _EventCluster({required this.center, required this.items});
+
+  bool get isSingle => items.length == 1;
+}
+
 class _MapScopeData {
   final List<EventListItem> visibleItems;
   final List<BusynessArea> visibleAreas;
 
   const _MapScopeData({required this.visibleItems, required this.visibleAreas});
+}
+
+String? _categoryForItem(EventListItem item) =>
+    item.event.category ?? item.venue.category;
+
+String _categoryKey(String? category) {
+  final normalized = (category ?? '').trim().toLowerCase();
+  if (normalized == 'sports') return 'sport';
+  if (normalized == 'arts' || normalized == 'arts and theatre') {
+    return 'art';
+  }
+  return normalized.replaceAll(RegExp(r'\s+'), ' ');
+}
+
+String _categoryLabel(String category) {
+  final trimmed = category.trim();
+  if (trimmed.isEmpty) return trimmed;
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .map((word) {
+        if (word == '&') return word;
+        if (word.length <= 2) return word.toUpperCase();
+        return word[0].toUpperCase() + word.substring(1).toLowerCase();
+      })
+      .join(' ');
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -66,10 +96,15 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
   String? _selectedEventId;
-  String _activeFilter = 'All';
+  String _activeFilter = _allCategoryFilter;
   bool _showAllEvents = false;
+  bool _accessibleOnly = false;
   bool _mapCenteredOnEvents = false;
   bool _mapCenteredOnLocation = false;
+  double _currentZoom = _initialMapZoom;
+  List<LatLng> _routePoints = const [];
+  String? _routeEventId;
+  String? _routeLoadingEventId;
 
   @override
   void initState() {
@@ -97,14 +132,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.dispose();
   }
 
+  List<EventListItem> _upcomingEvents(List<EventListItem> items) {
+    return items.where((item) => !item.event.isPast).toList();
+  }
+
   List<EventListItem> _applyFilter(List<EventListItem> items) {
-    if (_activeFilter == 'All') return items;
-    return items
-        .where(
-          (i) =>
-              (i.event.category ?? '').toLowerCase() ==
-              _activeFilter.toLowerCase(),
-        )
+    final upcomingItems = _upcomingEvents(items);
+    final categoryFilteredItems = _activeFilter == _allCategoryFilter
+        ? upcomingItems
+        : upcomingItems
+              .where(
+                (i) =>
+                    _categoryKey(_categoryForItem(i)) ==
+                    _categoryKey(_activeFilter),
+              )
+              .toList();
+    if (!_accessibleOnly) return categoryFilteredItems;
+    return categoryFilteredItems
+        .where((item) => item.venue.isAccessible)
         .toList();
   }
 
@@ -125,6 +170,101 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           );
       return km <= radiusKm;
     }).toList();
+  }
+
+  Future<void> _showRouteToEvent(EventListItem item, LatLng mapCenter) async {
+    if (_routeLoadingEventId != null) return;
+
+    final from = ref.read(locationProvider).position ?? mapCenter;
+    final to = LatLng(item.venue.lat, item.venue.lng);
+
+    setState(() {
+      _selectedEventId = item.event.id;
+      _routeLoadingEventId = item.event.id;
+    });
+
+    try {
+      final points = await _fetchRoutePoints(
+        from: from,
+        to: to,
+        wheelchair: item.venue.isAccessible,
+      );
+      if (!mounted) return;
+      setState(() {
+        _routePoints = points;
+        _routeEventId = item.event.id;
+      });
+      _fitRoute(points);
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Could not draw route, opening Google Maps');
+      await _openGoogleDirections(to);
+    } finally {
+      if (mounted) setState(() => _routeLoadingEventId = null);
+    }
+  }
+
+  Future<List<LatLng>> _fetchRoutePoints({
+    required LatLng from,
+    required LatLng to,
+    required bool wheelchair,
+  }) async {
+    final apiKey = ApiConfig.orsApiKey.trim();
+    if (apiKey.isEmpty) throw StateError('Missing ORS_API_KEY');
+
+    final profile = wheelchair ? 'wheelchair' : 'foot-walking';
+    final res = await Dio().post<Map<String, dynamic>>(
+      'https://api.openrouteservice.org/v2/directions/$profile/geojson',
+      options: Options(
+        headers: {'Authorization': apiKey, 'Content-Type': 'application/json'},
+      ),
+      data: {
+        'coordinates': [
+          [from.longitude, from.latitude],
+          [to.longitude, to.latitude],
+        ],
+      },
+    );
+
+    final coordinates =
+        res.data?['features']?[0]?['geometry']?['coordinates'] as List?;
+    if (coordinates == null || coordinates.isEmpty) {
+      throw StateError('Empty route');
+    }
+
+    return coordinates.map((point) {
+      final pair = point as List;
+      return LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble());
+    }).toList();
+  }
+
+  void _fitRoute(List<LatLng> points) {
+    if (points.isEmpty) return;
+    if (points.length == 1) {
+      _mapController.move(points.first, _focusedMapZoom);
+      return;
+    }
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.fromLTRB(48, 120, 48, 360),
+      ),
+    );
+  }
+
+  Future<void> _openGoogleDirections(LatLng destination) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=transit',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   List<BusynessArea> _areasWithinRadius(
@@ -150,6 +290,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final eventsAsync = ref.watch(nearbyEventsProvider);
     final busynessAsync = ref.watch(busynessAreasProvider);
     final mapCenter = locationState.position ?? const LatLng(40.7580, -73.9855);
+    final categoryFilters = _categoryFiltersFor(
+      eventsAsync.valueOrNull ?? const [],
+    );
 
     // Recenter on the user's location the first time it resolves — the map's
     // initialCenter is read before GPS returns, so without this it stays on the default.
@@ -160,7 +303,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     });
 
-    eventsAsync.whenData(_centerOnEventsIfNeeded);
+    eventsAsync.whenData(
+      (items) => _centerOnEventsIfNeeded(_upcomingEvents(items)),
+    );
 
     return Scaffold(
       body: Stack(
@@ -175,6 +320,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 initialCenter: mapCenter,
                 initialZoom: _initialMapZoom,
                 onTap: (_, _) => setState(() => _selectedEventId = null),
+                onPositionChanged: (camera, _) {
+                  final nextZoom = camera.zoom;
+                  if ((nextZoom - _currentZoom).abs() >= 0.05) {
+                    setState(() => _currentZoom = nextZoom);
+                  }
+                },
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
@@ -182,8 +333,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               children: [
                 TileLayer(
                   urlTemplate:
-                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
                   subdomains: const ['a', 'b', 'c', 'd'],
+                  maxZoom: 20,
                   userAgentPackageName: 'com.fromo.fromo',
                 ),
 
@@ -207,6 +359,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     markers: [_buildLocationDot(locationState.position!)],
                   ),
 
+                if (_routePoints.length >= 2)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: _routePoints,
+                        color: FromoColors.gray900.withValues(alpha: 0.88),
+                        strokeWidth: 5,
+                        borderColor: Colors.white,
+                        borderStrokeWidth: 2,
+                      ),
+                    ],
+                  ),
+
                 // Event price pins
                 eventsAsync.when(
                   data: (items) {
@@ -219,6 +384,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       markers: _buildEventMarkers(
                         scope.visibleItems,
                         scope.visibleAreas,
+                        _currentZoom,
                       ).toList(),
                     );
                   },
@@ -250,15 +416,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               return _BottomPanel(
                 scrollController: scrollController,
                 activeFilter: _activeFilter,
+                categoryFilters: categoryFilters,
                 onFilterChanged: (f) => setState(() => _activeFilter = f),
                 showAllEvents: _showAllEvents,
                 onScopeChanged: (showAll) =>
                     setState(() => _showAllEvents = showAll),
+                accessibleOnly: _accessibleOnly,
+                onAccessibleChanged: (value) =>
+                    setState(() => _accessibleOnly = value),
                 eventsAsync: eventsAsync,
                 location: locationState.position,
                 selectedEventId: _selectedEventId,
+                routeEventId: _routeEventId,
+                routeLoadingEventId: _routeLoadingEventId,
                 applyFilter: _applyFilter,
                 busynessAreas: busynessAsync.valueOrNull ?? const [],
+                onDirections: (item) => _showRouteToEvent(item, mapCenter),
                 onEventTap: (item) {
                   setState(() => _selectedEventId = item.event.id);
                   _mapController.move(
@@ -302,6 +475,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       visibleItems: filteredItems,
       visibleAreas: filteredAreas,
     );
+  }
+
+  List<String> _categoryFiltersFor(List<EventListItem> items) {
+    final labelsByKey = <String, String>{};
+    for (final item in _upcomingEvents(items)) {
+      final rawCategory = _categoryForItem(item);
+      final key = _categoryKey(rawCategory);
+      if (key.isEmpty) continue;
+      labelsByKey.putIfAbsent(key, () => _categoryLabel(rawCategory!));
+    }
+
+    final labels = labelsByKey.values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return [_allCategoryFilter, ...labels];
   }
 
   _CrowdBadgeData _crowdForEvent(EventListItem item, List<BusynessArea> areas) {
@@ -365,7 +552,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<Marker> _buildEventMarkers(
     List<EventListItem> items,
     List<BusynessArea> areas,
+    double zoom,
   ) {
+    final clusters = _clusterEvents(items, zoom);
+    if (zoom < _singleEventZoom) {
+      return clusters.map((cluster) {
+        if (cluster.isSingle) {
+          final item = cluster.items.first;
+          return _buildEventPin(
+            item,
+            _crowdForEvent(item, areas),
+            offset: Offset.zero,
+            siblingCount: 1,
+            isAccessible: item.venue.isAccessible,
+          );
+        }
+        return _buildClusterPin(cluster, areas, zoom);
+      }).toList();
+    }
+
     final buckets = <String, List<EventListItem>>{};
     for (final item in items) {
       final key =
@@ -402,9 +607,70 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             _crowdForEvent(layout.item, areas),
             offset: layout.offset,
             siblingCount: layout.siblingCount,
+            isAccessible: layout.item.venue.isAccessible,
           ),
         )
         .toList();
+  }
+
+  List<_EventCluster> _clusterEvents(List<EventListItem> items, double zoom) {
+    if (items.isEmpty) return const [];
+    if (zoom >= _singleEventZoom) {
+      return items
+          .map(
+            (item) => _EventCluster(
+              center: LatLng(item.venue.lat, item.venue.lng),
+              items: [item],
+            ),
+          )
+          .toList();
+    }
+
+    final radiusMeters = zoom < _midClusterZoom ? 520.0 : 180.0;
+    final distance = ll.Distance();
+    final clusters = <_EventCluster>[];
+
+    for (final item in items) {
+      final point = LatLng(item.venue.lat, item.venue.lng);
+      var matchedIndex = -1;
+      var matchedDistance = double.infinity;
+
+      for (var i = 0; i < clusters.length; i++) {
+        final meters = distance.as(
+          ll.LengthUnit.Meter,
+          point,
+          clusters[i].center,
+        );
+        if (meters <= radiusMeters && meters < matchedDistance) {
+          matchedIndex = i;
+          matchedDistance = meters;
+        }
+      }
+
+      if (matchedIndex == -1) {
+        clusters.add(_EventCluster(center: point, items: [item]));
+        continue;
+      }
+
+      final matched = clusters[matchedIndex];
+      final nextItems = [...matched.items, item];
+      clusters[matchedIndex] = _EventCluster(
+        center: _clusterCenter(nextItems),
+        items: nextItems,
+      );
+    }
+
+    return clusters;
+  }
+
+  LatLng _clusterCenter(List<EventListItem> items) {
+    final lat =
+        items.map((item) => item.venue.lat).reduce((a, b) => a + b) /
+        items.length;
+    final lng =
+        items.map((item) => item.venue.lng).reduce((a, b) => a + b) /
+        items.length;
+    return LatLng(lat, lng);
   }
 
   Marker _buildLocationDot(LatLng pos) {
@@ -434,6 +700,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _CrowdBadgeData crowd, {
     required Offset offset,
     required int siblingCount,
+    required bool isAccessible,
   }) {
     final isSelected = _selectedEventId == item.event.id;
     return Marker(
@@ -456,10 +723,63 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             priceLabel: item.event.priceDisplay,
             crowd: crowd,
             siblingCount: siblingCount,
+            isAccessible: isAccessible,
           ),
         ),
       ),
     );
+  }
+
+  Marker _buildClusterPin(
+    _EventCluster cluster,
+    List<BusynessArea> areas,
+    double zoom,
+  ) {
+    final crowd = _crowdForCluster(cluster, areas);
+    final count = cluster.items.length;
+    final size = count >= 8
+        ? 86.0
+        : count >= 4
+        ? 76.0
+        : 66.0;
+    return Marker(
+      point: cluster.center,
+      width: size + 30,
+      height: size + 30,
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _selectedEventId = null);
+          _mapController.move(
+            cluster.center,
+            math.min(zoom + 1.6, _focusedMapZoom),
+          );
+        },
+        child: _ClusterEventPin(
+          count: count,
+          crowd: crowd,
+          size: size,
+          hasAccessible: cluster.items.any((item) => item.venue.isAccessible),
+        ),
+      ),
+    );
+  }
+
+  _CrowdBadgeData _crowdForCluster(
+    _EventCluster cluster,
+    List<BusynessArea> areas,
+  ) {
+    final crowds = cluster.items.map((item) => _crowdForEvent(item, areas));
+    return crowds.reduce((current, next) {
+      final currentRank = _crowdRank(current);
+      final nextRank = _crowdRank(next);
+      return nextRank > currentRank ? next : current;
+    });
+  }
+
+  int _crowdRank(_CrowdBadgeData crowd) {
+    if (crowd.label == 'High crowd') return 3;
+    if (crowd.label == 'Medium crowd') return 2;
+    return 1;
   }
 }
 
@@ -523,27 +843,39 @@ class _TopBar extends ConsumerWidget {
 class _BottomPanel extends StatelessWidget {
   final ScrollController scrollController;
   final String activeFilter;
+  final List<String> categoryFilters;
   final ValueChanged<String> onFilterChanged;
   final bool showAllEvents;
   final ValueChanged<bool> onScopeChanged;
+  final bool accessibleOnly;
+  final ValueChanged<bool> onAccessibleChanged;
   final AsyncValue<List<EventListItem>> eventsAsync;
   final LatLng? location;
   final String? selectedEventId;
+  final String? routeEventId;
+  final String? routeLoadingEventId;
   final List<EventListItem> Function(List<EventListItem>) applyFilter;
   final List<BusynessArea> busynessAreas;
+  final ValueChanged<EventListItem> onDirections;
   final ValueChanged<EventListItem> onEventTap;
 
   const _BottomPanel({
     required this.scrollController,
     required this.activeFilter,
+    required this.categoryFilters,
     required this.onFilterChanged,
     required this.showAllEvents,
     required this.onScopeChanged,
+    required this.accessibleOnly,
+    required this.onAccessibleChanged,
     required this.eventsAsync,
     required this.location,
     required this.selectedEventId,
+    required this.routeEventId,
+    required this.routeLoadingEventId,
     required this.applyFilter,
     required this.busynessAreas,
+    required this.onDirections,
     required this.onEventTap,
   });
 
@@ -603,6 +935,13 @@ class _BottomPanel extends StatelessWidget {
                           isActive: showAllEvents,
                           onTap: () => onScopeChanged(true),
                         ),
+                        const SizedBox(width: 8),
+                        _ScopeChip(
+                          label: 'Accessible',
+                          icon: Icons.accessible_forward,
+                          isActive: accessibleOnly,
+                          onTap: () => onAccessibleChanged(!accessibleOnly),
+                        ),
                       ],
                     ),
                   ),
@@ -614,11 +953,12 @@ class _BottomPanel extends StatelessWidget {
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      itemCount: _filterCategories.length,
+                      itemCount: categoryFilters.length,
                       separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
-                        final cat = _filterCategories[i];
-                        final isActive = activeFilter == cat;
+                        final cat = categoryFilters[i];
+                        final isActive =
+                            _categoryKey(activeFilter) == _categoryKey(cat);
                         return GestureDetector(
                           onTap: () => onFilterChanged(cat),
                           child: AnimatedContainer(
@@ -736,11 +1076,14 @@ class _BottomPanel extends StatelessWidget {
                   itemBuilder: (context, i) => _ActivityCard(
                     item: filtered[i],
                     isSelected: selectedEventId == filtered[i].event.id,
+                    routeActive: routeEventId == filtered[i].event.id,
+                    routeLoading: routeLoadingEventId == filtered[i].event.id,
                     crowd: _crowdForEvent(filtered[i], visibleAreas),
                     onTap: () {
                       onEventTap(filtered[i]);
                       context.push('/events/${filtered[i].event.id}');
                     },
+                    onDirections: () => onDirections(filtered[i]),
                   ),
                 ),
               );
@@ -881,26 +1224,21 @@ _CrowdBadgeData _crowdVisualForArea(BusynessArea? area) {
 class _ActivityCard extends StatelessWidget {
   final EventListItem item;
   final bool isSelected;
+  final bool routeActive;
+  final bool routeLoading;
   final _CrowdBadgeData crowd;
   final VoidCallback onTap;
+  final VoidCallback onDirections;
 
   const _ActivityCard({
     required this.item,
     required this.isSelected,
+    required this.routeActive,
+    required this.routeLoading,
     required this.crowd,
     required this.onTap,
+    required this.onDirections,
   });
-
-  Future<void> _openDirections() async {
-    final lat = item.venue.lat;
-    final lng = item.venue.lng;
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=transit',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -956,6 +1294,11 @@ class _ActivityCard extends StatelessWidget {
                   const SizedBox(height: 6),
 
                   _CrowdChip(crowd: crowd),
+
+                  if (item.venue.isAccessible) ...[
+                    const SizedBox(height: 5),
+                    const _AccessibleBadge(),
+                  ],
 
                   const SizedBox(height: 3),
 
@@ -1092,30 +1435,48 @@ class _ActivityCard extends StatelessWidget {
 
                       // Get Directions button
                       GestureDetector(
-                        onTap: _openDirections,
+                        onTap: routeLoading ? null : onDirections,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: FromoColors.teal.withValues(alpha: 0.1),
+                            color: routeActive
+                                ? FromoColors.teal
+                                : FromoColors.teal.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.directions,
-                                size: 13,
-                                color: FromoColors.teal,
-                              ),
-                              SizedBox(width: 3),
+                              if (routeLoading)
+                                SizedBox(
+                                  width: 13,
+                                  height: 13,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: routeActive
+                                        ? Colors.white
+                                        : FromoColors.teal,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  Icons.alt_route,
+                                  size: 13,
+                                  color: routeActive
+                                      ? Colors.white
+                                      : FromoColors.teal,
+                                ),
+                              const SizedBox(width: 3),
                               Text(
-                                'Directions',
+                                routeActive ? 'Route' : 'Directions',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: FromoColors.teal,
+                                  color: routeActive
+                                      ? Colors.white
+                                      : FromoColors.teal,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1194,11 +1555,13 @@ class _ActivityThumbnailPlaceholder extends StatelessWidget {
 
 class _ScopeChip extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool isActive;
   final VoidCallback onTap;
 
   const _ScopeChip({
     required this.label,
+    this.icon,
     required this.isActive,
     required this.onTap,
   });
@@ -1214,13 +1577,26 @@ class _ScopeChip extends StatelessWidget {
           color: isActive ? FromoColors.teal : FromoColors.gray100,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : FromoColors.gray700,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 15,
+                color: isActive ? Colors.white : FromoColors.gray700,
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : FromoColors.gray700,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1251,17 +1627,140 @@ class _CrowdChip extends StatelessWidget {
   }
 }
 
+class _AccessibleBadge extends StatelessWidget {
+  const _AccessibleBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: FromoColors.teal.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: FromoColors.teal.withValues(alpha: 0.18)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.accessible_forward, size: 13, color: FromoColors.teal),
+          SizedBox(width: 4),
+          Text(
+            'Step-free',
+            style: TextStyle(
+              color: FromoColors.teal,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClusterEventPin extends StatelessWidget {
+  final int count;
+  final _CrowdBadgeData crowd;
+  final double size;
+  final bool hasAccessible;
+
+  const _ClusterEventPin({
+    required this.count,
+    required this.crowd,
+    required this.size,
+    required this.hasAccessible,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: size + 26,
+          height: size + 26,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: crowd.glowColor.withValues(alpha: 0.22),
+          ),
+        ),
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: crowd.color,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: crowd.color.withValues(alpha: 0.30),
+                blurRadius: 14,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                count == 1 ? 'event' : 'events',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasAccessible)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: FromoColors.teal, width: 2),
+              ),
+              child: const Icon(
+                Icons.accessible_forward,
+                size: 15,
+                color: FromoColors.teal,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _PulseEventPin extends StatefulWidget {
   final bool isSelected;
   final String priceLabel;
   final _CrowdBadgeData crowd;
   final int siblingCount;
+  final bool isAccessible;
 
   const _PulseEventPin({
     required this.isSelected,
     required this.priceLabel,
     required this.crowd,
     required this.siblingCount,
+    required this.isAccessible,
   });
 
   @override
@@ -1357,6 +1856,25 @@ class _PulseEventPinState extends State<_PulseEventPin>
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                     ),
+                  ),
+                ),
+              ),
+            if (widget.isAccessible)
+              Positioned(
+                left: 18,
+                bottom: 16,
+                child: Container(
+                  width: 23,
+                  height: 23,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: FromoColors.teal, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.accessible_forward,
+                    size: 14,
+                    color: FromoColors.teal,
                   ),
                 ),
               ),

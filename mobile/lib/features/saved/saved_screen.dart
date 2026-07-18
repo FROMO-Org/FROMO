@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
+import '../../shared/widgets/event_thumbnail.dart';
 import '../events/event_detail_providers.dart';
 
 class SavedScreen extends ConsumerWidget {
@@ -50,7 +51,11 @@ class SavedScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _unsave(BuildContext context, WidgetRef ref, String eventId) async {
+  Future<void> _unsave(
+    BuildContext context,
+    WidgetRef ref,
+    String eventId,
+  ) async {
     try {
       await ref.read(eventActionsProvider).unsave(eventId);
     } catch (_) {
@@ -97,15 +102,7 @@ class _SavedCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 72,
-                height: 72,
-                color: FromoColors.gray100,
-                child: const Icon(Icons.event, color: FromoColors.gray500, size: 30),
-              ),
-            ),
+            EventThumbnail(imageUrl: event.imageUrl),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -125,19 +122,29 @@ class _SavedCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     item.venue.name,
-                    style: const TextStyle(fontSize: 12, color: FromoColors.gray500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: FromoColors.gray500,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.access_time, size: 12, color: FromoColors.gray500),
+                      const Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: FromoColors.gray500,
+                      ),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           _formatTime(event.startsAt),
-                          style: const TextStyle(fontSize: 11, color: FromoColors.gray500),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: FromoColors.gray500,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -148,7 +155,9 @@ class _SavedCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: event.isFree ? FromoColors.gray900 : FromoColors.green600,
+                          color: event.isFree
+                              ? FromoColors.gray900
+                              : FromoColors.green600,
                         ),
                       ),
                     ],
@@ -216,11 +225,16 @@ class _Message extends StatelessWidget {
         children: [
           Icon(icon, size: 56, color: FromoColors.gray200),
           const SizedBox(height: 14),
-          Text(title, style: const TextStyle(color: FromoColors.gray700, fontSize: 15)),
+          Text(
+            title,
+            style: const TextStyle(color: FromoColors.gray700, fontSize: 15),
+          ),
           const SizedBox(height: 4),
-          Text(subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: FromoColors.gray500, fontSize: 12)),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: FromoColors.gray500, fontSize: 12),
+          ),
         ],
       ),
     );
