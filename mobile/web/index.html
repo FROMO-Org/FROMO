@@ -32,6 +32,63 @@
   <title>FROMO</title>
   <link rel="manifest" href="manifest.json">
 
+  <style>
+    :root {
+      --device-width: 430px;
+      --device-height: 932px;
+      --device-radius: 38px;
+      --device-bg: #f8fafc;
+      --page-bg: radial-gradient(circle at 20% 20%, #dff7f1 0, transparent 28%),
+        radial-gradient(circle at 80% 10%, #ffe8bd 0, transparent 24%),
+        linear-gradient(135deg, #10201f 0%, #162233 52%, #071014 100%);
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--page-bg);
+    }
+
+    body {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    flutter-view,
+    flt-glass-pane {
+      background: var(--device-bg) !important;
+      border: 10px solid #0b0f14 !important;
+      border-radius: var(--device-radius) !important;
+      box-shadow:
+        0 28px 80px rgb(0 0 0 / 38%),
+        0 0 0 1px rgb(255 255 255 / 18%) !important;
+      height: min(96vh, var(--device-height)) !important;
+      inset: auto !important;
+      overflow: hidden !important;
+      position: relative !important;
+      width: min(96vw, var(--device-width)) !important;
+    }
+
+    @media (max-width: 640px), (max-height: 760px) {
+      body {
+        background: var(--device-bg);
+      }
+
+      flutter-view,
+      flt-glass-pane {
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        height: 100vh !important;
+        width: 100vw !important;
+      }
+    }
+  </style>
+
   <!-- Required by supabase_flutter 2.x for Passkeys support -->
   <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
 </head>
