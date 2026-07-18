@@ -282,9 +282,10 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
   final location = ref.watch(locationProvider);
   final api = ref.watch(apiClientProvider);
 
-  try {
-    // Try with location first; fall back to all events if nothing nearby
-    if (location.position != null) {
+  // Try with location first; fall back to all events if nothing nearby or if
+  // the location-scoped request fails on a constrained mobile browser.
+  if (location.position != null) {
+    try {
       final res = await api.get<List<dynamic>>(
         '/events/',
         params: {
@@ -300,8 +301,12 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
           .map(EventListItem.fromJson)
           .toList();
       if (nearby.isNotEmpty) return _withVenueAccessibility(api, nearby);
+    } catch (_) {
+      // Continue to the all-events fallback below.
     }
+  }
 
+  try {
     // No location or no nearby events -> fetch all
     final res = await api.get<List<dynamic>>(
       '/events/',
