@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,6 +27,16 @@ class LocationNotifier extends StateNotifier<LocationState> {
   LocationNotifier() : super(const LocationState());
 
   Future<void> requestLocation() async {
+    const useDemoLocation = bool.fromEnvironment('USE_DEMO_LOCATION');
+    if (kIsWeb && useDemoLocation) {
+      state = state.copyWith(
+        position: const LatLng(40.7580, -73.9855),
+        isLoading: false,
+        error: null,
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true, error: null);
 
     try {

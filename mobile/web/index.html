@@ -34,13 +34,15 @@
 
   <style>
     :root {
-      --device-width: 430px;
-      --device-height: 932px;
-      --device-radius: 38px;
+      --device-width: 412px;
+      --device-height: 915px;
+      --device-radius: 30px;
       --device-bg: #f8fafc;
-      --page-bg: radial-gradient(circle at 20% 20%, #dff7f1 0, transparent 28%),
-        radial-gradient(circle at 80% 10%, #ffe8bd 0, transparent 24%),
-        linear-gradient(135deg, #10201f 0%, #162233 52%, #071014 100%);
+      --device-frame: #20252b;
+      --page-bg:
+        radial-gradient(circle at 18% 16%, rgb(13 194 168 / 16%) 0, transparent 30%),
+        radial-gradient(circle at 78% 18%, rgb(255 184 77 / 18%) 0, transparent 26%),
+        linear-gradient(135deg, #f6fbf8 0%, #f7f4ed 48%, #edf3f6 100%);
     }
 
     html,
@@ -55,27 +57,42 @@
       display: flex;
       justify-content: center;
       min-height: 100vh;
-      overflow: hidden;
+      overflow: auto;
+    }
+
+    body::after {
+      bottom: 18px;
+      color: rgb(17 24 39 / 34%);
+      content: "FROMO mobile preview";
+      font: 600 13px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.08em;
+      position: fixed;
+      text-transform: uppercase;
     }
 
     flutter-view,
     flt-glass-pane {
       background: var(--device-bg) !important;
-      border: 10px solid #0b0f14 !important;
+      border: 4px solid var(--device-frame) !important;
       border-radius: var(--device-radius) !important;
       box-shadow:
-        0 28px 80px rgb(0 0 0 / 38%),
-        0 0 0 1px rgb(255 255 255 / 18%) !important;
-      height: min(96vh, var(--device-height)) !important;
+        0 18px 52px rgb(15 23 42 / 18%),
+        0 5px 18px rgb(15 23 42 / 10%),
+        0 0 0 1px rgb(255 255 255 / 80%) !important;
+      height: min(calc(100vh - 56px), var(--device-height)) !important;
       inset: auto !important;
       overflow: hidden !important;
       position: relative !important;
-      width: min(96vw, var(--device-width)) !important;
+      width: min(92vw, var(--device-width)) !important;
     }
 
     @media (max-width: 640px), (max-height: 760px) {
       body {
         background: var(--device-bg);
+      }
+
+      body::after {
+        display: none;
       }
 
       flutter-view,
@@ -86,6 +103,7 @@
         height: 100vh !important;
         width: 100vw !important;
       }
+
     }
   </style>
 
