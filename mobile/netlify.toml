@@ -5,10 +5,15 @@
     export PATH="$HOME/flutter/bin:$PATH"
     flutter config --enable-web
     flutter pub get
-    flutter build web --release --no-wasm-dry-run --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=ORS_API_KEY=$ORS_API_KEY --dart-define=USE_DEMO_LOCATION=true
+    flutter build web --release --no-wasm-dry-run --pwa-strategy=none --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=ORS_API_KEY=$ORS_API_KEY --dart-define=USE_DEMO_LOCATION=true
   """
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"

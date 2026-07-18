@@ -60,16 +60,6 @@
       overflow: auto;
     }
 
-    body::after {
-      bottom: 18px;
-      color: rgb(17 24 39 / 34%);
-      content: "FROMO mobile preview";
-      font: 600 13px/1.2 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0.08em;
-      position: fixed;
-      text-transform: uppercase;
-    }
-
     flutter-view,
     flt-glass-pane {
       background: var(--device-bg) !important;
@@ -89,10 +79,6 @@
     @media (max-width: 640px), (max-height: 760px) {
       body {
         background: var(--device-bg);
-      }
-
-      body::after {
-        display: none;
       }
 
       flutter-view,
