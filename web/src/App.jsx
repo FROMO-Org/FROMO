@@ -8,6 +8,7 @@ import Listings from "./pages/partner/Listings.jsx";
 import Analytics from "./pages/partner/Analytics.jsx";
 import PartnerSettings from "./pages/partner/PartnerSettings.jsx";
 import Settings from "./pages/Settings.jsx";
+import CheckoutRedirect from "./pages/CheckoutRedirect.jsx";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -21,6 +22,14 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/settings" element={<Settings />} />
+        <Route
+          path="/checkout/success"
+          element={<CheckoutRedirect status="success" />}
+        />
+        <Route
+          path="/checkout/cancel"
+          element={<CheckoutRedirect status="cancel" />}
+        />
         <Route path="/partner" element={<PartnerLayout />}>
           <Route index element={<Listings />} />
           <Route path="analytics" element={<Analytics />} />

@@ -35,6 +35,18 @@ void main() {
       expect(event.isLastMinuteDeal, isTrue);
     });
 
+    test('VenueSummary parses accessibility flag', () {
+      final venue = VenueSummary.fromJson({
+        'id': 'venue-1',
+        'name': 'Accessible Hall',
+        'lat': 40.7,
+        'lng': -73.9,
+        'is_accessible': true,
+      });
+
+      expect(venue.isAccessible, isTrue);
+    });
+
     test('isPast uses endsAt when present', () {
       final event = Event(
         id: 'event-2',

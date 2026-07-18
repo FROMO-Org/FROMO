@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../shared/models/booking.dart';
+import '../../shared/widgets/event_thumbnail.dart';
 import 'bookings_providers.dart';
 
 class BookingsScreen extends ConsumerWidget {
@@ -33,7 +34,8 @@ class BookingsScreen extends ConsumerWidget {
               );
             }
             // Confirmed first, then cancelled; each group newest-booked first.
-            final sorted = [...items]..sort((a, b) {
+            final sorted = [...items]
+              ..sort((a, b) {
                 if (a.booking.isConfirmed != b.booking.isConfirmed) {
                   return a.booking.isConfirmed ? -1 : 1;
                 }
@@ -56,7 +58,10 @@ class BookingsScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmCancel(
-      BuildContext context, WidgetRef ref, BookingListItem item) async {
+    BuildContext context,
+    WidgetRef ref,
+    BookingListItem item,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -69,8 +74,10 @@ class BookingsScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel booking',
-                style: TextStyle(color: Color(0xFFDC2626))),
+            child: const Text(
+              'Cancel booking',
+              style: TextStyle(color: Color(0xFFDC2626)),
+            ),
           ),
         ],
       ),
@@ -88,7 +95,9 @@ class BookingsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Could not cancel booking')));
+          ..showSnackBar(
+            const SnackBar(content: Text('Could not cancel booking')),
+          );
       }
     }
   }
@@ -136,15 +145,10 @@ class _BookingCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      color: FromoColors.gray100,
-                      child: const Icon(Icons.event,
-                          color: FromoColors.gray500, size: 28),
-                    ),
+                  EventThumbnail(
+                    imageUrl: event.imageUrl,
+                    size: 64,
+                    iconSize: 28,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -174,21 +178,28 @@ class _BookingCard extends StatelessWidget {
                         Text(
                           item.venue.name,
                           style: const TextStyle(
-                              fontSize: 12, color: FromoColors.gray500),
+                            fontSize: 12,
+                            color: FromoColors.gray500,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.access_time,
-                                size: 12, color: FromoColors.gray500),
+                            const Icon(
+                              Icons.access_time,
+                              size: 12,
+                              color: FromoColors.gray500,
+                            ),
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(
                                 _formatTime(event.startsAt),
                                 style: const TextStyle(
-                                    fontSize: 11, color: FromoColors.gray500),
+                                  fontSize: 11,
+                                  color: FromoColors.gray500,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -208,11 +219,12 @@ class _BookingCard extends StatelessWidget {
                   Text(
                     '${booking.quantity} ${booking.quantity == 1 ? "ticket" : "tickets"}',
                     style: const TextStyle(
-                        fontSize: 12, color: FromoColors.gray700),
+                      fontSize: 12,
+                      color: FromoColors.gray700,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  Text('·',
-                      style: TextStyle(color: FromoColors.gray500)),
+                  Text('·', style: TextStyle(color: FromoColors.gray500)),
                   const SizedBox(width: 8),
                   Text(
                     booking.totalPriceDisplay,
@@ -229,14 +241,20 @@ class _BookingCard extends StatelessWidget {
                     TextButton(
                       onPressed: onCancel,
                       style: TextButton.styleFrom(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text('Cancel',
-                          style: TextStyle(
-                              color: Color(0xFFDC2626), fontSize: 13)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -249,8 +267,18 @@ class _BookingCard extends StatelessWidget {
 
   String _formatTime(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final m = dt.minute.toString().padLeft(2, '0');
@@ -276,7 +304,10 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         cancelled ? 'Cancelled' : 'Confirmed',
         style: TextStyle(
-            fontSize: 10, color: color, fontWeight: FontWeight.w600),
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -309,14 +340,22 @@ class _Message extends StatelessWidget {
                 children: [
                   Icon(icon, size: 56, color: FromoColors.gray200),
                   const SizedBox(height: 14),
-                  Text(title,
-                      style: const TextStyle(
-                          color: FromoColors.gray700, fontSize: 15)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: FromoColors.gray700,
+                      fontSize: 15,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: FromoColors.gray500, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: FromoColors.gray500,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),

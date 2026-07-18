@@ -288,7 +288,7 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
           .cast<Map<String, dynamic>>()
           .map(EventListItem.fromJson)
           .toList();
-      if (nearby.isNotEmpty) return nearby;
+      if (nearby.isNotEmpty) return _withVenueAccessibility(api, nearby);
     }
 
     // No location or no nearby events -> fetch all
@@ -297,11 +297,48 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
       params: {'status': 'active', 'limit': 50},
     );
     final data = res.data ?? [];
-    return data
+    final items = data
         .cast<Map<String, dynamic>>()
         .map(EventListItem.fromJson)
         .toList();
+    return _withVenueAccessibility(api, items);
   } catch (_) {
     return const [];
   }
 });
+
+Future<List<EventListItem>> _withVenueAccessibility(
+  ApiClient api,
+  List<EventListItem> items,
+) async {
+  if (items.isEmpty) return items;
+
+  try {
+    final venueIds = items.map((item) => item.venue.id).toSet();
+    final venueById = <String, Map<String, dynamic>>{};
+
+    for (final venueId in venueIds) {
+      try {
+        final res = await api.get<Map<String, dynamic>>('/venues/$venueId');
+        if (res.data != null) venueById[venueId] = res.data!;
+      } catch (_) {
+        // Keep the embedded venue summary if a specific venue cannot be loaded.
+      }
+    }
+
+    return items
+        .map(
+          (item) => item.copyWith(
+            venue: item.venue.copyWith(
+              category: venueById[item.venue.id]?['category'] as String?,
+              isAccessible:
+                  venueById[item.venue.id]?['is_accessible'] as bool? ??
+                  item.venue.isAccessible,
+            ),
+          ),
+        )
+        .toList();
+  } catch (_) {
+    return items;
+  }
+}

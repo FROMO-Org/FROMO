@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fromo/features/map/map_providers.dart';
 import 'package:fromo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,7 +22,15 @@ void main() {
   });
 
   testWidgets('App smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: FroMoApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nearbyEventsProvider.overrideWith((ref) async => []),
+          busynessAreasProvider.overrideWith((ref) async => []),
+        ],
+        child: const FroMoApp(),
+      ),
+    );
     expect(find.byType(FroMoApp), findsOneWidget);
   });
 }
