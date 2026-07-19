@@ -3,7 +3,6 @@ Tests for the AI event-summary service.
 The Gemini HTTP call is mocked — no network, no API key needed.
 """
 import httpx2
-import pytest
 
 from app.services import ai_service
 
