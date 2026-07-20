@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:latlong2/latlong.dart' as ll;
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
@@ -61,6 +60,48 @@ class _MapScopeData {
   const _MapScopeData({required this.visibleItems, required this.visibleAreas});
 }
 
+class _RouteResult {
+  final List<LatLng> points;
+  final double distanceMeters;
+  final double durationSeconds;
+  final List<_RouteStep> steps;
+  final bool isApproximate;
+
+  const _RouteResult({
+    required this.points,
+    required this.distanceMeters,
+    required this.durationSeconds,
+    this.steps = const [],
+    this.isApproximate = false,
+  });
+}
+
+class _RouteStep {
+  final String instruction;
+  final double distanceMeters;
+  final double durationSeconds;
+
+  const _RouteStep({
+    required this.instruction,
+    required this.distanceMeters,
+    required this.durationSeconds,
+  });
+}
+
+class _ActiveRoute {
+  final EventListItem item;
+  final _RouteResult result;
+  final LatLng origin;
+  final LatLng destination;
+
+  const _ActiveRoute({
+    required this.item,
+    required this.result,
+    required this.origin,
+    required this.destination,
+  });
+}
+
 String? _categoryForItem(EventListItem item) =>
     item.event.category ?? item.venue.category;
 
@@ -87,7 +128,9 @@ String _categoryLabel(String category) {
 }
 
 class MapScreen extends ConsumerStatefulWidget {
-  const MapScreen({super.key});
+  final String? routeToEventId;
+
+  const MapScreen({super.key, this.routeToEventId});
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
@@ -95,14 +138,18 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final _mapController = MapController();
+  final _sheetController = DraggableScrollableController();
   String? _selectedEventId;
   String _activeFilter = _allCategoryFilter;
   bool _showAllEvents = false;
   bool _accessibleOnly = false;
   bool _mapCenteredOnEvents = false;
   bool _mapCenteredOnLocation = false;
+  bool _initialRouteHandled = false;
+  bool _showNavigationSteps = false;
   double _currentZoom = _initialMapZoom;
   List<LatLng> _routePoints = const [];
+  _ActiveRoute? _activeRoute;
   String? _routeEventId;
   String? _routeLoadingEventId;
 
@@ -126,8 +173,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _mapController.move(center, _initialMapZoom);
   }
 
+  void _handleInitialRouteIfNeeded(
+    List<EventListItem> items,
+    LatLng mapCenter,
+  ) {
+    final eventId = widget.routeToEventId;
+    if (_initialRouteHandled || eventId == null || eventId.isEmpty) return;
+
+    EventListItem? target;
+    for (final item in items) {
+      if (item.event.id == eventId) {
+        target = item;
+        break;
+      }
+    }
+    if (target == null) return;
+
+    _initialRouteHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _showAllEvents = true;
+        _selectedEventId = target!.event.id;
+      });
+      _showRouteToEvent(target!, mapCenter);
+    });
+  }
+
   @override
   void dispose() {
+    _sheetController.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -174,6 +249,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   Future<void> _showRouteToEvent(EventListItem item, LatLng mapCenter) async {
     if (_routeLoadingEventId != null) return;
+    if (_routeEventId == item.event.id && _routePoints.length >= 2) {
+      _fitRoute(_routePoints);
+      return;
+    }
 
     final from = ref.read(locationProvider).position ?? mapCenter;
     final to = LatLng(item.venue.lat, item.venue.lng);
@@ -184,27 +263,48 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     try {
-      final points = await _fetchRoutePoints(
+      final route = await _fetchRoute(
         from: from,
         to: to,
         wheelchair: item.venue.isAccessible,
       );
       if (!mounted) return;
       setState(() {
-        _routePoints = points;
+        _routePoints = route.points;
+        _activeRoute = _ActiveRoute(
+          item: item,
+          result: route,
+          origin: from,
+          destination: to,
+        );
         _routeEventId = item.event.id;
+        _showNavigationSteps = false;
       });
-      _fitRoute(points);
+      _fitRoute(route.points);
+      _collapseSheetForNavigation();
     } catch (_) {
       if (!mounted) return;
-      _snack('Could not draw route, opening Google Maps');
-      await _openGoogleDirections(to);
+      final route = _approximateRoute(from: from, to: to);
+      setState(() {
+        _routePoints = route.points;
+        _activeRoute = _ActiveRoute(
+          item: item,
+          result: route,
+          origin: from,
+          destination: to,
+        );
+        _routeEventId = item.event.id;
+        _showNavigationSteps = false;
+      });
+      _fitRoute(route.points);
+      _collapseSheetForNavigation();
+      _snack('Showing approximate route');
     } finally {
       if (mounted) setState(() => _routeLoadingEventId = null);
     }
   }
 
-  Future<List<LatLng>> _fetchRoutePoints({
+  Future<_RouteResult> _fetchRoute({
     required LatLng from,
     required LatLng to,
     required bool wheelchair,
@@ -232,10 +332,100 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       throw StateError('Empty route');
     }
 
-    return coordinates.map((point) {
+    final points = coordinates.map((point) {
       final pair = point as List;
       return LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble());
     }).toList();
+
+    final summary = res.data?['features']?[0]?['properties']?['summary'];
+    final segments = res.data?['features']?[0]?['properties']?['segments'];
+    final rawSteps =
+        segments is List && segments.isNotEmpty
+            ? segments.first['steps'] as List?
+            : null;
+    final steps = (rawSteps ?? const [])
+        .whereType<Map>()
+        .map(
+          (step) => _RouteStep(
+            instruction:
+                (step['instruction'] as String?)?.trim().isNotEmpty == true
+                ? step['instruction'] as String
+                : 'Continue',
+            distanceMeters: ((step['distance'] as num?) ?? 0).toDouble(),
+            durationSeconds: ((step['duration'] as num?) ?? 0).toDouble(),
+          ),
+        )
+        .toList();
+    final routeSteps = steps.isEmpty
+        ? const [
+            _RouteStep(
+              instruction: 'Follow the route shown on the map',
+              distanceMeters: 0,
+              durationSeconds: 0,
+            ),
+          ]
+        : steps;
+
+    return _RouteResult(
+      points: points,
+      distanceMeters: ((summary?['distance'] as num?) ?? 0).toDouble(),
+      durationSeconds: ((summary?['duration'] as num?) ?? 0).toDouble(),
+      steps: routeSteps,
+    );
+  }
+
+  _RouteResult _approximateRoute({required LatLng from, required LatLng to}) {
+    final distance = const ll.Distance().as(ll.LengthUnit.Meter, from, to);
+    final midpoint = LatLng(
+      (from.latitude + to.latitude) / 2,
+      (from.longitude + to.longitude) / 2,
+    );
+    final bend = LatLng(
+      midpoint.latitude + (to.longitude - from.longitude) * 0.08,
+      midpoint.longitude - (to.latitude - from.latitude) * 0.08,
+    );
+
+    return _RouteResult(
+      points: [from, bend, to],
+      distanceMeters: distance,
+      durationSeconds: distance / 1.35,
+      steps: const [
+        _RouteStep(
+          instruction: 'Follow the approximate route shown on the map',
+          distanceMeters: 0,
+          durationSeconds: 0,
+        ),
+      ],
+      isApproximate: true,
+    );
+  }
+
+  void _clearRoute() {
+    setState(() {
+      _routePoints = const [];
+      _activeRoute = null;
+      _routeEventId = null;
+      _routeLoadingEventId = null;
+      _showNavigationSteps = false;
+    });
+    _expandSheetAfterNavigation();
+  }
+
+  void _collapseSheetForNavigation() {
+    _showNavigationSteps = false;
+    if (!_sheetController.isAttached) return;
+    _sheetController.jumpTo(
+      0.22,
+    );
+  }
+
+  void _expandSheetAfterNavigation() {
+    if (!_sheetController.isAttached) return;
+    _sheetController.animateTo(
+      0.45,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _fitRoute(List<LatLng> points) {
@@ -252,13 +442,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Future<void> _openGoogleDirections(LatLng destination) async {
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=transit',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _focusActiveRoute() {
+    if (_routePoints.length >= 2) _fitRoute(_routePoints);
   }
 
   void _snack(String message) {
@@ -304,7 +489,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     eventsAsync.whenData(
-      (items) => _centerOnEventsIfNeeded(_upcomingEvents(items)),
+      (items) {
+        final upcoming = _upcomingEvents(items);
+        _centerOnEventsIfNeeded(upcoming);
+        _handleInitialRouteIfNeeded(upcoming, mapCenter);
+      },
     );
 
     return Scaffold(
@@ -359,15 +548,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     markers: [_buildLocationDot(locationState.position!)],
                   ),
 
+                if (_activeRoute != null)
+                  MarkerLayer(
+                    markers: [
+                      _buildRouteStartMarker(),
+                      _buildRouteDestinationMarker(),
+                    ],
+                  ),
+
                 if (_routePoints.length >= 2)
                   PolylineLayer(
                     polylines: [
                       Polyline(
                         points: _routePoints,
-                        color: FromoColors.gray900.withValues(alpha: 0.88),
-                        strokeWidth: 5,
+                        color: FromoColors.teal.withValues(alpha: 0.92),
+                        strokeWidth: 6,
                         borderColor: Colors.white,
-                        borderStrokeWidth: 2,
+                        borderStrokeWidth: 3,
                       ),
                     ],
                   ),
@@ -380,9 +577,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       busynessAsync.valueOrNull ?? const [],
                       mapCenter,
                     );
+                    final routeEventId = _routeEventId;
+                    final markerItems = routeEventId == null
+                        ? scope.visibleItems
+                        : scope.visibleItems
+                              .where((item) => item.event.id == routeEventId)
+                              .toList();
                     return MarkerLayer(
                       markers: _buildEventMarkers(
-                        scope.visibleItems,
+                        markerItems,
                         scope.visibleAreas,
                         _currentZoom,
                       ).toList(),
@@ -405,15 +608,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
 
+          if (_activeRoute != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 82,
+              left: 16,
+              right: 16,
+              child: _RouteBanner(
+                route: _activeRoute!,
+                onFocus: _focusActiveRoute,
+                onClear: _clearRoute,
+              ),
+            ),
+
           // ── Bottom draggable panel ────────────────────────────────────────
-          DraggableScrollableSheet(
-            initialChildSize: 0.45,
-            minChildSize: 0.15,
-            maxChildSize: 0.88,
-            snap: true,
-            snapSizes: const [0.15, 0.45, 0.88],
-            builder: (context, scrollController) {
-              return _BottomPanel(
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              if (_activeRoute == null) return false;
+              final shouldShowSteps = notification.extent >= 0.34;
+              if (shouldShowSteps != _showNavigationSteps) {
+                setState(() => _showNavigationSteps = shouldShowSteps);
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: 0.45,
+              minChildSize: 0.20,
+              maxChildSize: 0.88,
+              snap: true,
+              snapSizes: const [0.22, 0.45, 0.88],
+              builder: (context, scrollController) {
+                return _BottomPanel(
                 scrollController: scrollController,
                 activeFilter: _activeFilter,
                 categoryFilters: categoryFilters,
@@ -427,10 +652,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 eventsAsync: eventsAsync,
                 location: locationState.position,
                 selectedEventId: _selectedEventId,
+                sheetController: _sheetController,
+                activeRoute: _activeRoute,
+                showNavigationSteps: _showNavigationSteps,
                 routeEventId: _routeEventId,
                 routeLoadingEventId: _routeLoadingEventId,
                 applyFilter: _applyFilter,
                 busynessAreas: busynessAsync.valueOrNull ?? const [],
+                onFocusRoute: _focusActiveRoute,
+                onClearRoute: _clearRoute,
                 onDirections: (item) => _showRouteToEvent(item, mapCenter),
                 onEventTap: (item) {
                   setState(() => _selectedEventId = item.event.id);
@@ -439,8 +669,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     _focusedMapZoom,
                   );
                 },
-              );
-            },
+                );
+              },
+            ),
           ),
 
           // ── Loading spinner ───────────────────────────────────────────────
@@ -483,6 +714,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final rawCategory = _categoryForItem(item);
       final key = _categoryKey(rawCategory);
       if (key.isEmpty) continue;
+      if (key == 'undefined' || key == 'null' || key == 'unknown') continue;
       labelsByKey.putIfAbsent(key, () => _categoryLabel(rawCategory!));
     }
 
@@ -695,6 +927,55 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  Marker _buildRouteDestinationMarker() {
+    final route = _activeRoute!;
+    return Marker(
+      point: route.destination,
+      width: 44,
+      height: 54,
+      child: Container(
+        decoration: BoxDecoration(
+          color: FromoColors.teal,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: FromoColors.teal.withValues(alpha: 0.35),
+              blurRadius: 14,
+              spreadRadius: 2,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.flag_rounded, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
+  Marker _buildRouteStartMarker() {
+    final route = _activeRoute!;
+    return Marker(
+      point: route.origin,
+      width: 38,
+      height: 38,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.blue,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.32),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: const Icon(Icons.directions_walk, color: Colors.white, size: 18),
+      ),
+    );
+  }
+
   Marker _buildEventPin(
     EventListItem item,
     _CrowdBadgeData crowd, {
@@ -838,6 +1119,124 @@ class _TopBar extends ConsumerWidget {
   }
 }
 
+class _RouteBanner extends StatelessWidget {
+  final _ActiveRoute route;
+  final VoidCallback onFocus;
+  final VoidCallback onClear;
+
+  const _RouteBanner({
+    required this.route,
+    required this.onFocus,
+    required this.onClear,
+  });
+
+  String get _distanceLabel {
+    final meters = route.result.distanceMeters;
+    if (meters <= 0) return 'Route ready';
+    if (meters < 1000) return '${meters.round()} m';
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  String get _durationLabel {
+    final seconds = route.result.durationSeconds;
+    if (seconds <= 0) return 'estimated walk';
+    final minutes = (seconds / 60).ceil();
+    if (minutes < 60) return '$minutes min walk';
+    final hours = minutes ~/ 60;
+    final remainder = minutes % 60;
+    return remainder == 0 ? '$hours hr walk' : '$hours hr $remainder min walk';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accessible = route.item.venue.isAccessible;
+    final routeNote = [
+      _distanceLabel,
+      _durationLabel,
+      if (accessible) 'accessible route',
+      if (route.result.isApproximate) 'approximate',
+    ].join(' • ');
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: FromoColors.teal.withValues(alpha: 0.16)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: FromoColors.teal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                accessible ? Icons.accessible_forward : Icons.directions_walk,
+                color: FromoColors.teal,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Navigating to ${route.item.event.title}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: FromoColors.gray900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    routeNote,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: FromoColors.gray500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: onFocus,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.center_focus_strong, color: FromoColors.teal),
+              tooltip: 'Recenter route',
+            ),
+            IconButton(
+              onPressed: onClear,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close, color: FromoColors.gray500),
+              tooltip: 'Clear route',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Bottom panel ───────────────────────────────────────────────────────────────
 
 class _BottomPanel extends StatelessWidget {
@@ -852,10 +1251,15 @@ class _BottomPanel extends StatelessWidget {
   final AsyncValue<List<EventListItem>> eventsAsync;
   final LatLng? location;
   final String? selectedEventId;
+  final DraggableScrollableController sheetController;
+  final _ActiveRoute? activeRoute;
+  final bool showNavigationSteps;
   final String? routeEventId;
   final String? routeLoadingEventId;
   final List<EventListItem> Function(List<EventListItem>) applyFilter;
   final List<BusynessArea> busynessAreas;
+  final VoidCallback onFocusRoute;
+  final VoidCallback onClearRoute;
   final ValueChanged<EventListItem> onDirections;
   final ValueChanged<EventListItem> onEventTap;
 
@@ -871,16 +1275,33 @@ class _BottomPanel extends StatelessWidget {
     required this.eventsAsync,
     required this.location,
     required this.selectedEventId,
+    required this.sheetController,
+    required this.activeRoute,
+    required this.showNavigationSteps,
     required this.routeEventId,
     required this.routeLoadingEventId,
     required this.applyFilter,
     required this.busynessAreas,
+    required this.onFocusRoute,
+    required this.onClearRoute,
     required this.onDirections,
     required this.onEventTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final route = activeRoute;
+    if (route != null) {
+      return _NavigationPanel(
+        scrollController: scrollController,
+        sheetController: sheetController,
+        route: route,
+        showSteps: showNavigationSteps,
+        onFocusRoute: onFocusRoute,
+        onClearRoute: onClearRoute,
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: FromoColors.gray50,
@@ -1152,6 +1573,329 @@ class _BottomPanel extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavigationPanel extends StatelessWidget {
+  final ScrollController scrollController;
+  final DraggableScrollableController sheetController;
+  final _ActiveRoute route;
+  final bool showSteps;
+  final VoidCallback onFocusRoute;
+  final VoidCallback onClearRoute;
+
+  const _NavigationPanel({
+    required this.scrollController,
+    required this.sheetController,
+    required this.route,
+    required this.showSteps,
+    required this.onFocusRoute,
+    required this.onClearRoute,
+  });
+
+  String _distanceLabel(double meters) {
+    if (meters <= 0) return 'Route';
+    if (meters < 1000) return '${meters.round()} m';
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  String _durationLabel(double seconds) {
+    if (seconds <= 0) return 'Walk';
+    final minutes = (seconds / 60).ceil();
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final remainder = minutes % 60;
+    return remainder == 0 ? '$hours hr' : '$hours hr $remainder min';
+  }
+
+  IconData _iconForStep(int index, _RouteStep step) {
+    final text = step.instruction.toLowerCase();
+    if (index == 0) return Icons.trip_origin;
+    if (text.contains('left')) return Icons.turn_left;
+    if (text.contains('right')) return Icons.turn_right;
+    if (text.contains('arrive') || text.contains('destination')) {
+      return Icons.flag_rounded;
+    }
+    return Icons.straight;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = route.result.steps;
+    return AnimatedBuilder(
+      animation: sheetController,
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: FromoColors.gray50,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 18,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 10),
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: FromoColors.gray200,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: FromoColors.teal.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Icon(
+                          route.item.venue.isAccessible
+                              ? Icons.accessible_forward
+                              : Icons.directions_walk,
+                          color: FromoColors.teal,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_durationLabel(route.result.durationSeconds)} walk',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: FromoColors.gray900,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${_distanceLabel(route.result.distanceMeters)} to ${route.item.event.title}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: FromoColors.gray500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: onFocusRoute,
+                          icon: const Icon(Icons.center_focus_strong),
+                          label: const Text('Recenter'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: FromoColors.teal,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onClearRoute,
+                          icon: const Icon(Icons.close),
+                          label: const Text('End route'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: FromoColors.gray700,
+                            side: const BorderSide(color: FromoColors.gray200),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (route.result.isApproximate)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+                    child: _ApproximateRouteNotice(),
+                  ),
+                if (!showSteps)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+                    child: Text(
+                      'Swipe up for turn-by-turn steps',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: FromoColors.gray500,
+                      ),
+                    ),
+                  ),
+                if (showSteps)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      'Route steps',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: FromoColors.gray900,
+                      ),
+                    ),
+                  ),
+                  ],
+                ),
+              ),
+              if (showSteps)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                  sliver: SliverList.separated(
+                    itemCount: steps.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final step = steps[index];
+                      return _RouteStepTile(
+                        index: index,
+                        icon: _iconForStep(index, step),
+                        instruction: step.instruction,
+                        distance: _distanceLabel(step.distanceMeters),
+                        duration: _durationLabel(step.durationSeconds),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ApproximateRouteNotice extends StatelessWidget {
+  const _ApproximateRouteNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7DB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF6D87A)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, color: Color(0xFF9A6B00), size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Approximate route. Detailed turn-by-turn directions are unavailable.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF7A5600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteStepTile extends StatelessWidget {
+  final int index;
+  final IconData icon;
+  final String instruction;
+  final String distance;
+  final String duration;
+
+  const _RouteStepTile({
+    required this.index,
+    required this.icon,
+    required this.instruction,
+    required this.distance,
+    required this.duration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: FromoColors.gray200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: FromoColors.teal.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: FromoColors.teal, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  instruction,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: FromoColors.gray900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$distance • $duration',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: FromoColors.gray500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../shared/models/event.dart';
-import '../../shared/models/venue.dart';
 import '../bookings/bookings_providers.dart';
 import 'event_detail_providers.dart';
 
@@ -241,7 +240,7 @@ class _Content extends StatelessWidget {
                       subtitle: (venue.address?.isNotEmpty ?? false)
                           ? venue.address
                           : null,
-                      trailing: _DirectionsButton(venue: venue),
+                      trailing: _DirectionsButton(eventId: event.id),
                     ),
                     if (event.url != null && event.url!.trim().isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -560,23 +559,13 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _DirectionsButton extends StatelessWidget {
-  final Venue venue;
-  const _DirectionsButton({required this.venue});
-
-  Future<void> _open() async {
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&destination=${venue.lat},${venue.lng}&travelmode=transit',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
+  final String eventId;
+  const _DirectionsButton({required this.eventId});
 
   @override
   Widget build(BuildContext context) {
     return TextButton.icon(
-      onPressed: _open,
+      onPressed: () => context.go('/map?routeTo=$eventId'),
       icon: const Icon(Icons.directions, size: 18, color: FromoColors.teal),
       label: const Text(
         'Directions',

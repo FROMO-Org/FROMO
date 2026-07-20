@@ -1,6 +1,9 @@
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "/api";
 
+export const MOBILE_WEB_URL =
+  import.meta.env.VITE_MOBILE_WEB_URL ?? "https://fromomobile.netlify.app";
+
 export const PUBLIC_EVENT_STATUS = "active";
 
 export const USER_TYPE = {
