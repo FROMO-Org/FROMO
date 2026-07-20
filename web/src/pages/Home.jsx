@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import EventCard from "../components/EventCard.jsx";
@@ -15,6 +15,15 @@ function hasEventEnded(e) {
   return end <= new Date();
 }
 
+function isTodayOrTomorrow(e) {
+  const start = new Date(e.starts_at);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDayAfterTomorrow = new Date(startOfToday);
+  startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 2);
+  return start >= startOfToday && start < startOfDayAfterTomorrow;
+}
+
 export default function Home() {
   const { user, profile } = useAuth();
   const isStudent = !profile || profile.user_type === "student";
@@ -23,8 +32,11 @@ export default function Home() {
   const [status, setStatus] = useState("loading");
   const [selectedId, setSelectedId] = useState(null);
   const [route, setRoute] = useState(null);
+  const [routeError, setRouteError] = useState(null);
+  const mapSectionRef = useRef(null);
   const [busynessAreas, setBusynessAreas] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [accessibleOnly, setAccessibleOnly] = useState(false);
   const [savedIds, setSavedIds] = useState(new Set());
   const [savePrompt, setSavePrompt] = useState(false);
   const [feedMode, setFeedMode] = useState("all");
@@ -130,7 +142,10 @@ export default function Home() {
     }
   }
 
-  const activeEvents = useMemo(() => events.filter((e) => !hasEventEnded(e)), [events]);
+  const activeEvents = useMemo(
+    () => events.filter((e) => !hasEventEnded(e) && isTodayOrTomorrow(e)),
+    [events]
+  );
 
   const categories = useMemo(() => {
     const seen = new Set();
@@ -142,12 +157,13 @@ export default function Home() {
   }, [activeEvents]);
 
   const filteredEvents = useMemo(() => {
-    if (activeCategory === "all") return activeEvents;
     return activeEvents.filter((e) => {
+      if (accessibleOnly && !e.venue?.is_accessible) return false;
+      if (activeCategory === "all") return true;
       const cat = (e.category || e.venue?.category || "").toLowerCase();
       return cat === activeCategory;
     });
-  }, [activeEvents, activeCategory]);
+  }, [activeEvents, activeCategory, accessibleOnly]);
 
   const focus = useMemo(() => {
     const e = activeEvents.find((x) => x.id === selectedId);
@@ -174,13 +190,16 @@ export default function Home() {
     const v = event.venue || {};
     const dest = { lat: v.lat, lng: v.lng };
     setSelectedId(event.id);
+    setRouteError(null);
+    mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     try {
       const from = await getUserLocation();
       const profile = v.is_accessible ? "wheelchair" : "foot-walking";
       const { geojson } = await fetchRoute({ from, to: dest, profile });
       setRoute(geojson);
     } catch {
-      window.open(googleMapsUrl(dest), "_blank", "noopener");
+      setRoute(null);
+      setRouteError({ dest, eventTitle: event.title });
     }
   }
 
@@ -204,7 +223,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="px-10 pb-8 xl:px-16">
+      <div ref={mapSectionRef} className="px-10 pb-8 xl:px-16" style={{ scrollMarginTop: 80 }}>
         <div className="relative h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
           <EventMap
             events={activeEvents}
@@ -234,6 +253,36 @@ export default function Home() {
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E53935", display: "inline-block" }} /> Busier
               </span>
+            </div>
+          )}
+
+          {routeError && (
+            <div style={{
+              position: "absolute", top: 8, right: 8, zIndex: 1000,
+              maxWidth: 280,
+              background: "var(--color-paper)", border: "1px solid var(--color-line)",
+              borderRadius: 10, padding: "10px 14px",
+              display: "flex", flexDirection: "column", gap: 6,
+              fontSize: 12.5, color: "var(--color-ink)",
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <span>Couldn't load a route to {routeError.eventTitle}.</span>
+                <button
+                  onClick={() => setRouteError(null)}
+                  aria-label="Dismiss"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-muted)", fontSize: 14, lineHeight: 1, padding: 0, flexShrink: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+              <a
+                href={googleMapsUrl(routeError.dest)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#F5A623", fontWeight: 700, textDecoration: "none" }}
+              >
+                Open in Google Maps instead →
+              </a>
             </div>
           )}
         </div>
@@ -267,6 +316,12 @@ export default function Home() {
               ))}
             </>
           )}
+          <span className="h-4 w-px bg-line mx-1" />
+          <CategoryTab
+            label="Wheelchair Accessible"
+            active={accessibleOnly}
+            onClick={() => setAccessibleOnly((v) => !v)}
+          />
         </div>
 
         {status === "loading" && <FeedNote>Loading what's nearby…</FeedNote>}
@@ -289,7 +344,11 @@ export default function Home() {
         )}
 
         {status === "ready" && filteredEvents.length === 0 && (
-          <FeedNote>No {activeCategory} events {feedMode === "nearby" ? "near you" : "in Manhattan"} right now.</FeedNote>
+          <FeedNote>
+            No {accessibleOnly ? "wheelchair accessible " : ""}{activeCategory === "all" ? "" : `${activeCategory} `}
+            events {feedMode === "nearby" ? "near you" : "in Manhattan"} right now
+            {accessibleOnly ? " — no venues are marked accessible yet" : ""}.
+          </FeedNote>
         )}
 
         {status === "ready" && filteredEvents.length > 0 && (

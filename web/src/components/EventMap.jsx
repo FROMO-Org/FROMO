@@ -151,7 +151,7 @@ export default function EventMap({ events, busynessAreas = [], getNearestBusynes
         <GeoJSON
           key={JSON.stringify(route).slice(0, 64)}
           data={route}
-          style={{ color: "#14110E", weight: 4, opacity: 0.8 }}
+          style={{ color: isDark ? "#F5F0E8" : "#14110E", weight: 4, opacity: 0.8 }}
         />
       )}
 
