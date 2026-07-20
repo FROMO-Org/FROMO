@@ -5,6 +5,9 @@ import { fetchEventImage } from "../lib/ticketmaster.js";
 import { googleMapsUrl } from "../lib/directions.js";
 import { formatPrice } from "../lib/format.js";
 
+const MOBILE_APP_URL = "https://fromomobile.netlify.app/?v=api-fix#/map";
+const QR_CODE_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(MOBILE_APP_URL)}`;
+
 function formatEventDate(iso) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString(undefined, {
@@ -21,24 +24,6 @@ function BackIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M19 12H5M12 5l-7 7 7 7" />
-    </svg>
-  );
-}
-
-function QrPlaceholderIcon() {
-  return (
-    <svg viewBox="0 0 100 100" width="96" height="96" fill="none" stroke="var(--color-muted)" strokeWidth="1.5">
-      <rect x="10" y="10" width="28" height="28" rx="3" />
-      <rect x="20" y="20" width="8" height="8" fill="var(--color-muted)" stroke="none" />
-      <rect x="62" y="10" width="28" height="28" rx="3" />
-      <rect x="72" y="20" width="8" height="8" fill="var(--color-muted)" stroke="none" />
-      <rect x="10" y="62" width="28" height="28" rx="3" />
-      <rect x="20" y="72" width="8" height="8" fill="var(--color-muted)" stroke="none" />
-      <rect x="52" y="52" width="10" height="10" />
-      <rect x="68" y="52" width="10" height="10" />
-      <rect x="52" y="68" width="10" height="10" />
-      <rect x="68" y="68" width="18" height="10" />
-      <rect x="52" y="84" width="10" height="6" />
     </svg>
   );
 }
@@ -272,17 +257,10 @@ export default function EventDetail() {
               width: 180,
               height: 180,
               borderRadius: 12,
-              border: "2px dashed var(--color-line)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
+              border: "1px solid var(--color-line)",
+              overflow: "hidden",
             }}>
-              <QrPlaceholderIcon />
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                QR code coming soon
-              </span>
+              <img src={QR_CODE_SRC} alt="Scan to open FROMO on mobile" width={180} height={180} style={{ display: "block" }} />
             </div>
 
             <div style={{ textAlign: "center" }}>

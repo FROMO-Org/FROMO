@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createEvent, listVenues } from "../../lib/api";
+import CreateVenueModal from "./CreateVenueModal";
 
 const CATEGORIES = ["Music", "Food", "Art", "Sport", "Comedy", "Wellness", "Networking", "Other"];
 
@@ -30,16 +31,31 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showVenueModal, setShowVenueModal] = useState(false);
 
-  useEffect(() => {
-    listVenues({ organisation_id: orgId, limit: 100 })
+  function loadVenues() {
+    setVenuesLoading(true);
+    return listVenues({ organisation_id: orgId, limit: 100 })
       .then((v) => {
         setVenues(v);
-        if (v.length === 1) setForm((f) => ({ ...f, venue_id: v[0].id }));
+        return v;
       })
-      .catch(() => {})
+      .catch(() => [])
       .finally(() => setVenuesLoading(false));
+  }
+
+  useEffect(() => {
+    loadVenues().then((v) => {
+      if (v.length === 1) setForm((f) => ({ ...f, venue_id: v[0].id }));
+    });
   }, [orgId]);
+
+  function handleVenueCreated(venue) {
+    setShowVenueModal(false);
+    loadVenues().then(() => {
+      set("venue_id", venue.id);
+    });
+  }
 
   function set(key, val) {
     setForm((f) => ({ ...f, [key]: val }));
@@ -141,21 +157,32 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
             <Field label="Venue *">
               {venuesLoading ? (
                 <div style={{ fontSize: 13, color: "#888", padding: "12px 0" }}>Loading venues…</div>
-              ) : venues.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#E53935", padding: "12px 0" }}>
-                  No venues found for this organisation. Add a venue first.
-                </div>
               ) : (
-                <select
-                  value={form.venue_id}
-                  onChange={(e) => set("venue_id", e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">— Select venue —</option>
-                  {venues.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
+                <>
+                  {venues.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#E53935", marginBottom: 8 }}>
+                      No venues found for this organisation.
+                    </div>
+                  ) : (
+                    <select
+                      value={form.venue_id}
+                      onChange={(e) => set("venue_id", e.target.value)}
+                      style={{ ...inputStyle, marginBottom: 8 }}
+                    >
+                      <option value="">— Select venue —</option>
+                      {venues.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowVenueModal(true)}
+                    style={{ background: "none", border: "none", padding: 0, fontSize: 13, fontWeight: 600, color: "#F5A623", cursor: "pointer" }}
+                  >
+                    + Add a venue
+                  </button>
+                </>
               )}
             </Field>
           </Row>
@@ -253,6 +280,14 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
           </div>
         </form>
       </div>
+
+      {showVenueModal && (
+        <CreateVenueModal
+          orgId={orgId}
+          onClose={() => setShowVenueModal(false)}
+          onCreated={handleVenueCreated}
+        />
+      )}
     </div>
   );
 }

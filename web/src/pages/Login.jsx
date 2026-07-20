@@ -87,14 +87,6 @@ export default function Login() {
               </button>
             }
           />
-          <div style={{ textAlign: "right" }}>
-            <span
-              className="text-muted"
-              style={{ fontSize: "13px", cursor: "pointer" }}
-            >
-              Forgot password?
-            </span>
-          </div>
         </div>
 
         {error && (
