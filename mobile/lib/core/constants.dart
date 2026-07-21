@@ -4,8 +4,8 @@ class ApiConfig {
   static String get baseUrl {
     const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return envUrl;
-    // Web (Chrome) uses localhost; Android emulator uses 10.0.2.2
-    return kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+    // Web deploys need the public backend; Android emulator uses the host loopback.
+    return kIsWeb ? 'https://fromo.onrender.com' : 'http://10.0.2.2:8000';
   }
 
   static const String orsApiKey = String.fromEnvironment('ORS_API_KEY');

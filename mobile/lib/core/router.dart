@@ -33,7 +33,12 @@ final router = GoRouter(
     ShellRoute(
       builder: (_, _, child) => AppShell(child: child),
       routes: [
-        GoRoute(path: '/map', builder: (_, _) => const MapScreen()),
+        GoRoute(
+          path: '/map',
+          builder: (_, state) => MapScreen(
+            routeToEventId: state.uri.queryParameters['routeTo'],
+          ),
+        ),
         GoRoute(path: '/saved', builder: (_, _) => const SavedScreen()),
         GoRoute(path: '/bookings', builder: (_, _) => const BookingsScreen()),
         GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),

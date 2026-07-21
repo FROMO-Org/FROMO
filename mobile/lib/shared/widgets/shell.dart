@@ -1,15 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme.dart';
 
 class AppShell extends StatelessWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
   static const _tabs = [
-    (path: '/map', label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home),
-    (path: '/saved', label: 'Saved', icon: Icons.bookmark_outline, activeIcon: Icons.bookmark),
-    (path: '/bookings', label: 'Bookings', icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number),
-    (path: '/profile', label: 'Profile', icon: Icons.person_outline, activeIcon: Icons.person),
+    (
+      path: '/map',
+      label: 'Home',
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home,
+    ),
+    (
+      path: '/saved',
+      label: 'Saved',
+      icon: Icons.bookmark_outline,
+      activeIcon: Icons.bookmark,
+    ),
+    (
+      path: '/bookings',
+      label: 'Bookings',
+      icon: Icons.confirmation_number_outlined,
+      activeIcon: Icons.confirmation_number,
+    ),
+    (
+      path: '/profile',
+      label: 'Profile',
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+    ),
   ];
 
   int _indexFor(BuildContext context) {
@@ -22,16 +43,19 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = _indexFor(context);
     return Scaffold(
+      backgroundColor: FromoColors.paper,
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: current,
         onDestinationSelected: (i) => context.go(_tabs[i].path),
         destinations: _tabs
-            .map((t) => NavigationDestination(
-                  icon: Icon(t.icon),
-                  selectedIcon: Icon(t.activeIcon),
-                  label: t.label,
-                ))
+            .map(
+              (t) => NavigationDestination(
+                icon: Icon(t.icon),
+                selectedIcon: Icon(t.activeIcon),
+                label: t.label,
+              ),
+            )
             .toList(),
       ),
     );

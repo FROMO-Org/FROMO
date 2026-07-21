@@ -128,11 +128,12 @@ class _BookingCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: FromoColors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: FromoColors.line),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
+                color: Colors.black.withValues(alpha: 0.32),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -294,7 +295,9 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = cancelled ? const Color(0xFF991B1B) : FromoColors.green600;
-    final bg = cancelled ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5);
+    final bg = cancelled
+        ? FromoColors.danger.withValues(alpha: 0.16)
+        : FromoColors.green600.withValues(alpha: 0.16);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

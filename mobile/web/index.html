@@ -32,10 +32,95 @@
   <title>FROMO</title>
   <link rel="manifest" href="manifest.json">
 
+  <style>
+    :root {
+      --device-width: 412px;
+      --device-height: 915px;
+      --device-radius: 30px;
+      --device-bg: #f8fafc;
+      --device-frame: #20252b;
+      --page-bg:
+        radial-gradient(circle at 18% 16%, rgb(13 194 168 / 16%) 0, transparent 30%),
+        radial-gradient(circle at 78% 18%, rgb(255 184 77 / 18%) 0, transparent 26%),
+        linear-gradient(135deg, #f6fbf8 0%, #f7f4ed 48%, #edf3f6 100%);
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--page-bg);
+    }
+
+    body {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: auto;
+    }
+
+    flutter-view,
+    flt-glass-pane {
+      background: var(--device-bg) !important;
+      border: 4px solid var(--device-frame) !important;
+      border-radius: var(--device-radius) !important;
+      box-shadow:
+        0 18px 52px rgb(15 23 42 / 18%),
+        0 5px 18px rgb(15 23 42 / 10%),
+        0 0 0 1px rgb(255 255 255 / 80%) !important;
+      height: min(calc(100vh - 56px), var(--device-height)) !important;
+      inset: auto !important;
+      overflow: hidden !important;
+      position: relative !important;
+      width: min(92vw, var(--device-width)) !important;
+    }
+
+    @media (max-width: 640px), (max-height: 760px) {
+      body {
+        background: var(--device-bg);
+      }
+
+      flutter-view,
+      flt-glass-pane {
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        height: 100vh !important;
+        width: 100vw !important;
+      }
+
+    }
+  </style>
+
   <!-- Required by supabase_flutter 2.x for Passkeys support -->
   <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
 </head>
 <body>
+  <script>
+    (async function clearLegacyFlutterCache() {
+      if (!('serviceWorker' in navigator)) return;
+
+      const cacheKey = 'fromo-cache-cleared-v3';
+      if (localStorage.getItem(cacheKey) === 'true') return;
+
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+
+        localStorage.setItem(cacheKey, 'true');
+        window.location.reload();
+      } catch (_) {
+        localStorage.setItem(cacheKey, 'true');
+      }
+    })();
+  </script>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

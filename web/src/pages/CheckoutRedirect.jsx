@@ -1,17 +1,31 @@
 import { useEffect, useMemo } from "react";
+import { MOBILE_WEB_URL } from "../lib/config";
 
 export default function CheckoutRedirect({ status }) {
+  const query = typeof window !== "undefined" ? window.location.search || "" : "";
+  const mobilePath = status === "success" ? "/#/bookings" : "/#/map";
+
   const deepLink = useMemo(() => {
-    const query = window.location.search || "";
     return `fromo://checkout/${status}${query}`;
-  }, [status]);
+  }, [query, status]);
+
+  const mobileWebLink = useMemo(() => {
+    const version = status === "success" ? "checkout-success" : "checkout-cancel";
+    return `${MOBILE_WEB_URL}/?v=${version}${mobilePath}`;
+  }, [mobilePath, status]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const openAppTimer = window.setTimeout(() => {
       window.location.href = deepLink;
     }, 350);
-    return () => window.clearTimeout(timer);
-  }, [deepLink]);
+    const fallbackTimer = window.setTimeout(() => {
+      window.location.href = mobileWebLink;
+    }, 1600);
+    return () => {
+      window.clearTimeout(openAppTimer);
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [deepLink, mobileWebLink]);
 
   const isSuccess = status === "success";
 
@@ -29,12 +43,20 @@ export default function CheckoutRedirect({ status }) {
             ? "Your payment is being confirmed. The app will refresh your booking status when it opens."
             : "No worries. You can reopen the event and try again whenever you are ready."}
         </p>
-        <a
-          href={deepLink}
-          className="mt-6 inline-flex rounded-full bg-teal px-5 py-3 text-sm font-bold text-white"
-        >
-          Open the app
-        </a>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <a
+            href={deepLink}
+            className="inline-flex rounded-full bg-teal px-5 py-3 text-sm font-bold text-white"
+          >
+            Open the app
+          </a>
+          <a
+            href={mobileWebLink}
+            className="inline-flex rounded-full border border-line px-5 py-3 text-sm font-bold text-ink"
+          >
+            Open mobile web
+          </a>
+        </div>
       </section>
     </main>
   );
