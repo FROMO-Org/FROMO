@@ -440,7 +440,7 @@ class _CircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: FromoColors.surface,
       shape: const CircleBorder(),
       elevation: 2,
       child: InkWell(
@@ -448,7 +448,7 @@ class _CircleButton extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 20, color: FromoColors.gray900),
+          child: Icon(icon, size: 20, color: FromoColors.amber500),
         ),
       ),
     );
@@ -520,7 +520,7 @@ class _InfoRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: FromoColors.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: FromoColors.gray200),
           ),
@@ -662,10 +662,11 @@ class _BookingBar extends StatelessWidget {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: FromoColors.surface,
+        border: const Border(top: BorderSide(color: FromoColors.line)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 12,
             offset: const Offset(0, -3),
           ),
@@ -734,7 +735,7 @@ class _BookingBar extends StatelessWidget {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: FromoColors.amberInk,
                       ),
                     )
                   : Text(label),

@@ -1077,7 +1077,7 @@ class _TopBar extends ConsumerWidget {
       child: Material(
         elevation: 2,
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: FromoColors.surface,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onLocationTap,
@@ -1161,7 +1161,7 @@ class _RouteBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: FromoColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: FromoColors.teal.withValues(alpha: 0.16)),
           boxShadow: [
@@ -1306,7 +1306,7 @@ class _BottomPanel extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: FromoColors.gray50,
+        color: FromoColors.paper,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -1339,7 +1339,7 @@ class _BottomPanel extends StatelessWidget {
           // Filter chips
           SliverToBoxAdapter(
             child: Container(
-              color: Colors.white,
+              color: FromoColors.paper,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1400,7 +1400,7 @@ class _BottomPanel extends StatelessWidget {
                               cat,
                               style: TextStyle(
                                 color: isActive
-                                    ? Colors.white
+                                    ? FromoColors.amberInk
                                     : FromoColors.gray700,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13,
@@ -1634,7 +1634,7 @@ class _NavigationPanel extends StatelessWidget {
       builder: (context, _) {
         return Container(
           decoration: BoxDecoration(
-            color: FromoColors.gray50,
+            color: FromoColors.paper,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
@@ -1724,7 +1724,7 @@ class _NavigationPanel extends StatelessWidget {
                               label: const Text('Recenter'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: FromoColors.teal,
-                                foregroundColor: Colors.white,
+                                foregroundColor: FromoColors.amberInk,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -1817,13 +1817,13 @@ class _ApproximateRouteNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7DB),
+        color: FromoColors.amber500.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF6D87A)),
+        border: Border.all(color: FromoColors.amber500.withValues(alpha: 0.42)),
       ),
       child: const Row(
         children: [
-          Icon(Icons.info_outline, color: Color(0xFF9A6B00), size: 18),
+          Icon(Icons.info_outline, color: FromoColors.amber500, size: 18),
           SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1831,7 +1831,7 @@ class _ApproximateRouteNotice extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF7A5600),
+                color: FromoColors.ink,
               ),
             ),
           ),
@@ -1861,7 +1861,7 @@ class _RouteStepTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: FromoColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: FromoColors.gray200),
       ),
@@ -2036,15 +2036,15 @@ class _ActivityCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: FromoColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? FromoColors.teal : Colors.transparent,
+            color: isSelected ? FromoColors.teal : FromoColors.line,
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.32),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -2184,14 +2184,14 @@ class _ActivityCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3CD),
+                            color: FromoColors.amber500.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
                             'Last-minute deal',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF856404),
+                              color: FromoColors.amber500,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -2205,14 +2205,14 @@ class _ActivityCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3CD),
+                            color: FromoColors.amber500.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '${event.spotsRemaining} spots left',
                             style: const TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF856404),
+                              color: FromoColors.amber500,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -2244,7 +2244,7 @@ class _ActivityCard extends StatelessWidget {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: routeActive
-                                        ? Colors.white
+                                        ? FromoColors.amberInk
                                         : FromoColors.teal,
                                   ),
                                 )
@@ -2253,7 +2253,7 @@ class _ActivityCard extends StatelessWidget {
                                   Icons.alt_route,
                                   size: 13,
                                   color: routeActive
-                                      ? Colors.white
+                                      ? FromoColors.amberInk
                                       : FromoColors.teal,
                                 ),
                               const SizedBox(width: 3),
@@ -2262,7 +2262,7 @@ class _ActivityCard extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: routeActive
-                                      ? Colors.white
+                                      ? FromoColors.amberInk
                                       : FromoColors.teal,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2371,14 +2371,14 @@ class _ScopeChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 15,
-                color: isActive ? Colors.white : FromoColors.gray700,
+                color: isActive ? FromoColors.amberInk : FromoColors.gray700,
               ),
               const SizedBox(width: 5),
             ],
             Text(
               label,
               style: TextStyle(
-                color: isActive ? Colors.white : FromoColors.gray700,
+                color: isActive ? FromoColors.amberInk : FromoColors.gray700,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),

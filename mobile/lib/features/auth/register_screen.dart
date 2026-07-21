@@ -32,14 +32,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      await ref.read(authActionsProvider).signUp(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-        _nameCtrl.text.trim(),
-      );
+      await ref
+          .read(authActionsProvider)
+          .signUp(
+            _emailCtrl.text.trim(),
+            _passwordCtrl.text,
+            _nameCtrl.text.trim(),
+          );
       if (mounted) context.go('/map');
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -53,7 +58,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: FromoColors.paper,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -68,7 +73,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                 const Text(
                   'Create account',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: FromoColors.gray900),
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: FromoColors.gray900,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -89,7 +98,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: authInputDeco('Your name'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Enter your name'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -117,7 +128,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onFieldSubmitted: (_) => _submit(),
                   decoration: authInputDeco('Min. 6 characters').copyWith(
                     suffixIcon: IconButton(
-                      icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                      icon: Icon(
+                        _obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                      ),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
                   ),
@@ -135,7 +151,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Create Account'),
                   ),
                 ),
@@ -144,10 +167,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Already have an account? ', style: TextStyle(color: FromoColors.gray500)),
+                    const Text(
+                      'Already have an account? ',
+                      style: TextStyle(color: FromoColors.gray500),
+                    ),
                     GestureDetector(
                       onTap: () => context.pop(),
-                      child: const Text('Sign In', style: TextStyle(color: FromoColors.teal, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Sign In',
+                        style: TextStyle(
+                          color: FromoColors.teal,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),

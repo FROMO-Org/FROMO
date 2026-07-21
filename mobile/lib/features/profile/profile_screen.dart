@@ -84,7 +84,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 4),
                       Text(
                         user?.email ?? '',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.82)),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.82),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -145,7 +147,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 const Text(
                   'Developer',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: FromoColors.gray900),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: FromoColors.gray900,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -160,7 +165,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onPressed: () => _logout(context, ref),
             icon: const Icon(Icons.logout),
             label: const Text('Log out'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
           ),
         ],
       ),
@@ -196,7 +203,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } on PostgrestException catch (e) {
       if (!mounted) return;
       final details = e.details;
-      final detail = (e.message.isNotEmpty ? e.message : null) ??
+      final detail =
+          (e.message.isNotEmpty ? e.message : null) ??
           (details is String && details.isNotEmpty ? details : null) ??
           'Could not send feedback right now';
       ScaffoldMessenger.of(context)
@@ -218,14 +226,18 @@ class _MetricCard extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _MetricCard({required this.label, required this.value, required this.icon});
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: FromoColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: FromoColors.gray200),
       ),
@@ -272,7 +284,7 @@ class _ProfileAction extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: FromoColors.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: FromoColors.gray200),
           ),
@@ -300,7 +312,10 @@ class _ProfileAction extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(subtitle, style: const TextStyle(color: FromoColors.gray500)),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: FromoColors.gray500),
+                    ),
                   ],
                 ),
               ),
