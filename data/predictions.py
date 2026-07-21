@@ -60,8 +60,8 @@ SOURCE_TAG = "daily_lightgbm_pipeline"
 # ambiguous middle band. FLOOR/CEILING are the historical (all-time) 33rd/
 # 66th percentile of busyness_score across the full training set — not
 # 0.33/0.66, which sit above the 95th percentile of actual scores.
-LEVEL_FLOOR = 0.07
-LEVEL_CEILING = 0.22
+LEVEL_FLOOR = 0.06877886802750599
+LEVEL_CEILING = 0.21678455492730356
 LEVEL_DEADBAND = 0.02
 
 
