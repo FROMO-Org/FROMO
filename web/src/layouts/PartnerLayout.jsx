@@ -16,26 +16,30 @@ export default function PartnerLayout() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
+  async function loadDashboard(alive = { current: true }) {
+    try {
+      const orgs = await getMyOrganisations();
+      if (!alive.current) return;
+      if (!orgs.length) { setLoadState("no-org"); return; }
+      const org = orgs[0].organisation;
+      const dashboard = await getOrganisationDashboard(org.id);
+      if (!alive.current) return;
+      setOrgData({ org, dashboard });
+      setLoadState("ready");
+      // Fix stale user_type — if they have an org they ARE an organiser
+      if (profile?.user_type !== USER_TYPE.ORGANISER) {
+        await updateMyProfile({ user_type: USER_TYPE.ORGANISER });
+      }
+      reloadProfile();
+    } catch {
+      if (alive.current) setLoadState("error");
+    }
+  }
+
   useEffect(() => {
-    let alive = true;
-    getMyOrganisations()
-      .then((orgs) => {
-        if (!alive) return;
-        if (!orgs.length) { setLoadState("no-org"); return; }
-        const org = orgs[0].organisation;
-        return getOrganisationDashboard(org.id).then(async (dashboard) => {
-          if (!alive) return;
-          setOrgData({ org, dashboard });
-          setLoadState("ready");
-          // Fix stale user_type — if they have an org they ARE an organiser
-          if (profile?.user_type !== USER_TYPE.ORGANISER) {
-            await updateMyProfile({ user_type: USER_TYPE.ORGANISER });
-          }
-          reloadProfile();
-        });
-      })
-      .catch(() => alive && setLoadState("error"));
-    return () => { alive = false; };
+    const alive = { current: true };
+    loadDashboard(alive);
+    return () => { alive.current = false; };
   }, []);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -226,7 +230,7 @@ export default function PartnerLayout() {
             Couldn't load dashboard — is the backend running?
           </div>
         )}
-        {(loadState === "ready" || isSettings || isBookings) && <Outlet context={{ orgData }} />}
+        {(loadState === "ready" || isSettings || isBookings) && <Outlet context={{ orgData, refetchDashboard: loadDashboard }} />}
       </main>
       </div>
     </div>

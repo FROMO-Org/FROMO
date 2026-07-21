@@ -1,7 +1,22 @@
-import { ORS_API_KEY } from "./config";
+import { ORS_API_KEY, DEFAULT_CENTER } from "./config";
 
 export function googleMapsUrl({ lat, lng, mode = "transit" }) {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=${mode}`;
+}
+
+export function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(DEFAULT_CENTER);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const distDeg = Math.hypot(loc.lat - DEFAULT_CENTER.lat, loc.lng - DEFAULT_CENTER.lng);
+        resolve(distDeg > 1.0 ? DEFAULT_CENTER : loc);
+      },
+      () => resolve(DEFAULT_CENTER),
+      { timeout: 5000 }
+    );
+  });
 }
 
 export async function fetchRoute({ from, to, profile = "foot-walking" }) {

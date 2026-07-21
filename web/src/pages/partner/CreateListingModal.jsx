@@ -222,7 +222,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={form.price}
                 onChange={(e) => set("price", e.target.value)}
                 placeholder="0.00 = Free"
@@ -233,7 +233,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={form.original_price}
                 onChange={(e) => set("original_price", e.target.value)}
                 placeholder="Optional — shows strikethrough"

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { formatPrice } from "../../lib/format";
 import CreateListingModal from "./CreateListingModal";
+import EditListingModal from "./EditListingModal";
 
 function formatEventDate(iso) {
   if (!iso) return "—";
@@ -21,10 +22,10 @@ const TABS = [
 ];
 
 export default function Listings() {
-  const { orgData } = useOutletContext();
-  const navigate = useNavigate();
+  const { orgData, refetchDashboard } = useOutletContext();
   const [activeTab, setActiveTab] = useState("all");
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const summary = orgData?.dashboard?.summary ?? {};
   const listings = orgData?.dashboard?.listings ?? [];
@@ -125,7 +126,18 @@ export default function Listings() {
           onClose={() => setShowModal(false)}
           onCreated={() => {
             setShowModal(false);
-            navigate(0); // reload dashboard data
+            refetchDashboard();
+          }}
+        />
+      )}
+
+      {editingId && (
+        <EditListingModal
+          eventId={editingId}
+          onClose={() => setEditingId(null)}
+          onUpdated={() => {
+            setEditingId(null);
+            refetchDashboard();
           }}
         />
       )}
@@ -179,9 +191,7 @@ export default function Listings() {
                   <StatusBadge status={l.display_status} />
                 </td>
                 <td style={{ padding: "16px 0 16px 0", fontSize: 13, color: "#888" }}>
-                  <span style={{ cursor: "pointer" }}>Edit</span>
-                  <span style={{ margin: "0 6px" }}>·</span>
-                  <span style={{ cursor: "pointer" }}>Hide</span>
+                  <span style={{ cursor: "pointer" }} onClick={() => setEditingId(l.id)}>Edit</span>
                 </td>
               </tr>
             ))
