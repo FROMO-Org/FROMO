@@ -339,10 +339,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final summary = res.data?['features']?[0]?['properties']?['summary'];
     final segments = res.data?['features']?[0]?['properties']?['segments'];
-    final rawSteps =
-        segments is List && segments.isNotEmpty
-            ? segments.first['steps'] as List?
-            : null;
+    final rawSteps = segments is List && segments.isNotEmpty
+        ? segments.first['steps'] as List?
+        : null;
     final steps = (rawSteps ?? const [])
         .whereType<Map>()
         .map(
@@ -414,9 +413,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void _collapseSheetForNavigation() {
     _showNavigationSteps = false;
     if (!_sheetController.isAttached) return;
-    _sheetController.jumpTo(
-      0.22,
-    );
+    _sheetController.jumpTo(0.22);
   }
 
   void _expandSheetAfterNavigation() {
@@ -488,13 +485,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     });
 
-    eventsAsync.whenData(
-      (items) {
-        final upcoming = _upcomingEvents(items);
-        _centerOnEventsIfNeeded(upcoming);
-        _handleInitialRouteIfNeeded(upcoming, mapCenter);
-      },
-    );
+    eventsAsync.whenData((items) {
+      final upcoming = _upcomingEvents(items);
+      _centerOnEventsIfNeeded(upcoming);
+      _handleInitialRouteIfNeeded(upcoming, mapCenter);
+    });
 
     return Scaffold(
       body: Stack(
@@ -639,36 +634,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               snapSizes: const [0.22, 0.45, 0.88],
               builder: (context, scrollController) {
                 return _BottomPanel(
-                scrollController: scrollController,
-                activeFilter: _activeFilter,
-                categoryFilters: categoryFilters,
-                onFilterChanged: (f) => setState(() => _activeFilter = f),
-                showAllEvents: _showAllEvents,
-                onScopeChanged: (showAll) =>
-                    setState(() => _showAllEvents = showAll),
-                accessibleOnly: _accessibleOnly,
-                onAccessibleChanged: (value) =>
-                    setState(() => _accessibleOnly = value),
-                eventsAsync: eventsAsync,
-                location: locationState.position,
-                selectedEventId: _selectedEventId,
-                sheetController: _sheetController,
-                activeRoute: _activeRoute,
-                showNavigationSteps: _showNavigationSteps,
-                routeEventId: _routeEventId,
-                routeLoadingEventId: _routeLoadingEventId,
-                applyFilter: _applyFilter,
-                busynessAreas: busynessAsync.valueOrNull ?? const [],
-                onFocusRoute: _focusActiveRoute,
-                onClearRoute: _clearRoute,
-                onDirections: (item) => _showRouteToEvent(item, mapCenter),
-                onEventTap: (item) {
-                  setState(() => _selectedEventId = item.event.id);
-                  _mapController.move(
-                    LatLng(item.venue.lat, item.venue.lng),
-                    _focusedMapZoom,
-                  );
-                },
+                  scrollController: scrollController,
+                  activeFilter: _activeFilter,
+                  categoryFilters: categoryFilters,
+                  onFilterChanged: (f) => setState(() => _activeFilter = f),
+                  showAllEvents: _showAllEvents,
+                  onScopeChanged: (showAll) =>
+                      setState(() => _showAllEvents = showAll),
+                  accessibleOnly: _accessibleOnly,
+                  onAccessibleChanged: (value) =>
+                      setState(() => _accessibleOnly = value),
+                  eventsAsync: eventsAsync,
+                  location: locationState.position,
+                  selectedEventId: _selectedEventId,
+                  sheetController: _sheetController,
+                  activeRoute: _activeRoute,
+                  showNavigationSteps: _showNavigationSteps,
+                  routeEventId: _routeEventId,
+                  routeLoadingEventId: _routeLoadingEventId,
+                  applyFilter: _applyFilter,
+                  busynessAreas: busynessAsync.valueOrNull ?? const [],
+                  onFocusRoute: _focusActiveRoute,
+                  onClearRoute: _clearRoute,
+                  onDirections: (item) => _showRouteToEvent(item, mapCenter),
+                  onEventTap: (item) {
+                    setState(() => _selectedEventId = item.event.id);
+                    _mapController.move(
+                      LatLng(item.venue.lat, item.venue.lng),
+                      _focusedMapZoom,
+                    );
+                  },
                 );
               },
             ),
@@ -755,27 +750,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   _CrowdBadgeData _crowdVisualForArea(BusynessArea? area) {
-    final level = area?.level;
+    final level = area?.level?.toLowerCase();
     final score = area?.score;
 
-    if (level == 'busy' || (score != null && score >= 0.67)) {
+    if (level == 'busier' ||
+        level == 'busy' ||
+        (score != null && score >= 0.22)) {
       return const _CrowdBadgeData(
-        label: 'High crowd',
+        label: 'Busier',
         color: Color(0xFFEF4444),
         glowColor: Color(0xFFFCA5A5),
       );
     }
 
-    if (level == 'quiet' || (score != null && score <= 0.33)) {
+    if (level == 'not busy' ||
+        level == 'quiet' ||
+        (score != null && score <= 0.07)) {
       return const _CrowdBadgeData(
-        label: 'Low crowd',
+        label: 'Not busy',
         color: Color(0xFF22C55E),
         glowColor: Color(0xFF86EFAC),
       );
     }
 
     return const _CrowdBadgeData(
-      label: 'Medium crowd',
+      label: 'As usual',
       color: Color(0xFFF59E0B),
       glowColor: Color(0xFFFDE68A),
     );
@@ -1058,8 +1057,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   int _crowdRank(_CrowdBadgeData crowd) {
-    if (crowd.label == 'High crowd') return 3;
-    if (crowd.label == 'Medium crowd') return 2;
+    if (crowd.label == 'Busier') return 3;
+    if (crowd.label == 'As usual') return 2;
     return 1;
   }
 }
@@ -1221,7 +1220,10 @@ class _RouteBanner extends StatelessWidget {
             IconButton(
               onPressed: onFocus,
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.center_focus_strong, color: FromoColors.teal),
+              icon: const Icon(
+                Icons.center_focus_strong,
+                color: FromoColors.teal,
+              ),
               tooltip: 'Recenter route',
             ),
             IconButton(
@@ -1649,133 +1651,135 @@ class _NavigationPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 10, bottom: 10),
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: FromoColors.gray200,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: FromoColors.teal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Icon(
-                          route.item.venue.isAccessible
-                              ? Icons.accessible_forward
-                              : Icons.directions_walk,
-                          color: FromoColors.teal,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_durationLabel(route.result.durationSeconds)} walk',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                color: FromoColors.gray900,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${_distanceLabel(route.result.distanceMeters)} to ${route.item.event.title}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: FromoColors.gray500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: onFocusRoute,
-                          icon: const Icon(Icons.center_focus_strong),
-                          label: const Text('Recenter'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: FromoColors.teal,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 10),
+                        child: Container(
+                          width: 44,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: FromoColors.gray200,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onClearRoute,
-                          icon: const Icon(Icons.close),
-                          label: const Text('End route'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: FromoColors.gray700,
-                            side: const BorderSide(color: FromoColors.gray200),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: FromoColors.teal.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(18),
                             ),
+                            child: Icon(
+                              route.item.venue.isAccessible
+                                  ? Icons.accessible_forward
+                                  : Icons.directions_walk,
+                              color: FromoColors.teal,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_durationLabel(route.result.durationSeconds)} walk',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: FromoColors.gray900,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${_distanceLabel(route.result.distanceMeters)} to ${route.item.event.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: FromoColors.gray500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: onFocusRoute,
+                              icon: const Icon(Icons.center_focus_strong),
+                              label: const Text('Recenter'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: FromoColors.teal,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: onClearRoute,
+                              icon: const Icon(Icons.close),
+                              label: const Text('End route'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: FromoColors.gray700,
+                                side: const BorderSide(
+                                  color: FromoColors.gray200,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (route.result.isApproximate)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+                        child: _ApproximateRouteNotice(),
+                      ),
+                    if (!showSteps)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+                        child: Text(
+                          'Swipe up for turn-by-turn steps',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: FromoColors.gray500,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                if (route.result.isApproximate)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
-                    child: _ApproximateRouteNotice(),
-                  ),
-                if (!showSteps)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
-                    child: Text(
-                      'Swipe up for turn-by-turn steps',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: FromoColors.gray500,
+                    if (showSteps)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        child: Text(
+                          'Route steps',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: FromoColors.gray900,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                if (showSteps)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: Text(
-                      'Route steps',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: FromoColors.gray900,
-                      ),
-                    ),
-                  ),
                   ],
                 ),
               ),
@@ -1972,27 +1976,31 @@ BusynessArea? _matchingAreaForEvent(
 }
 
 _CrowdBadgeData _crowdVisualForArea(BusynessArea? area) {
-  final level = area?.level;
+  final level = area?.level?.toLowerCase();
   final score = area?.score;
 
-  if (level == 'busy' || (score != null && score >= 0.67)) {
+  if (level == 'busier' ||
+      level == 'busy' ||
+      (score != null && score >= 0.22)) {
     return const _CrowdBadgeData(
-      label: 'High crowd',
+      label: 'Busier',
       color: Color(0xFFEF4444),
       glowColor: Color(0xFFFCA5A5),
     );
   }
 
-  if (level == 'quiet' || (score != null && score <= 0.33)) {
+  if (level == 'not busy' ||
+      level == 'quiet' ||
+      (score != null && score <= 0.07)) {
     return const _CrowdBadgeData(
-      label: 'Low crowd',
+      label: 'Not busy',
       color: Color(0xFF22C55E),
       glowColor: Color(0xFF86EFAC),
     );
   }
 
   return const _CrowdBadgeData(
-    label: 'Medium crowd',
+    label: 'As usual',
     color: Color(0xFFF59E0B),
     glowColor: Color(0xFFFDE68A),
   );

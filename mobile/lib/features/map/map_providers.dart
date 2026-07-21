@@ -151,7 +151,7 @@ class BusynessArea {
   final double lng;
   final int radiusMetres;
   final double? score;
-  final String? level; // 'busy' | 'moderate' | 'quiet'
+  final String? level; // 'not busy' | 'as usual' | 'busier'
 
   const BusynessArea({
     required this.id,
@@ -230,7 +230,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7580,
     lng: -73.9855,
     radiusMetres: 650,
-    level: 'busy',
+    level: 'busier',
   ),
   BusynessArea(
     id: 'sample-union-square',
@@ -238,7 +238,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7359,
     lng: -73.9911,
     radiusMetres: 550,
-    level: 'busy',
+    level: 'busier',
   ),
   BusynessArea(
     id: 'sample-greenwich',
@@ -246,7 +246,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7336,
     lng: -74.0027,
     radiusMetres: 600,
-    level: 'moderate',
+    level: 'as usual',
   ),
   BusynessArea(
     id: 'sample-lincoln',
@@ -254,7 +254,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7725,
     lng: -73.9835,
     radiusMetres: 500,
-    level: 'moderate',
+    level: 'as usual',
   ),
   BusynessArea(
     id: 'sample-les',
@@ -262,7 +262,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7180,
     lng: -73.9857,
     radiusMetres: 550,
-    level: 'quiet',
+    level: 'not busy',
   ),
   BusynessArea(
     id: 'sample-fidi',
@@ -270,7 +270,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7068,
     lng: -74.0090,
     radiusMetres: 600,
-    level: 'quiet',
+    level: 'not busy',
   ),
 ];
 
