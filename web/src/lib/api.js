@@ -39,6 +39,8 @@ export const getBusynessNearby = (params = {}) =>
 
 export const createEvent = (body) =>
   api.post("/events/", body).then((r) => r.data);
+export const updateEvent = (id, body) =>
+  api.patch(`/events/${id}`, body).then((r) => r.data);
 
 export const getMyOrganisations = () =>
   api.get("/organisations/me").then((r) => r.data);

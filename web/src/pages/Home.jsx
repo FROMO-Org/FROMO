@@ -4,7 +4,7 @@ import L from "leaflet";
 import EventCard from "../components/EventCard.jsx";
 import EventMap from "../components/EventMap.jsx";
 import { getDiscoverFeed, getBusynessNearby, getSavedEvents, saveEvent, unsaveEvent } from "../lib/api.js";
-import { fetchRoute, googleMapsUrl } from "../lib/directions.js";
+import { fetchRoute, googleMapsUrl, getUserLocation } from "../lib/directions.js";
 import { DEFAULT_CENTER } from "../lib/config.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -227,7 +227,6 @@ export default function Home() {
         <div className="relative h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
           <EventMap
             events={activeEvents}
-            busynessAreas={busynessAreas}
             getNearestBusynessLevel={getNearestBusynessLevel}
             focus={focus}
             route={route}
@@ -410,19 +409,4 @@ function FeedNote({ children }) {
       {children}
     </div>
   );
-}
-
-function getUserLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(DEFAULT_CENTER);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const distDeg = Math.hypot(loc.lat - DEFAULT_CENTER.lat, loc.lng - DEFAULT_CENTER.lng);
-        resolve(distDeg > 1.0 ? DEFAULT_CENTER : loc);
-      },
-      () => resolve(DEFAULT_CENTER),
-      { timeout: 5000 }
-    );
-  });
 }
