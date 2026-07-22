@@ -88,11 +88,12 @@ class _SavedCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: FromoColors.surface,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: FromoColors.line),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: Colors.black.withValues(alpha: 0.32),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),

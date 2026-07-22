@@ -30,13 +30,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      await ref.read(authActionsProvider).signIn(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-      );
+      await ref
+          .read(authActionsProvider)
+          .signIn(_emailCtrl.text.trim(), _passwordCtrl.text);
       if (mounted) context.go('/map');
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -50,7 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: FromoColors.paper,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -65,7 +67,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 const Text(
                   'Welcome back',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: FromoColors.gray900),
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: FromoColors.gray900,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -103,7 +109,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onFieldSubmitted: (_) => _submit(),
                   decoration: authInputDeco('••••••••').copyWith(
                     suffixIcon: IconButton(
-                      icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                      icon: Icon(
+                        _obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                      ),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
                   ),
@@ -121,7 +132,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Sign In'),
                   ),
                 ),
@@ -130,10 +148,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? ", style: TextStyle(color: FromoColors.gray500)),
+                    const Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: FromoColors.gray500),
+                    ),
                     GestureDetector(
                       onTap: () => context.push('/register'),
-                      child: const Text('Sign Up', style: TextStyle(color: FromoColors.teal, fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          color: FromoColors.teal,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),

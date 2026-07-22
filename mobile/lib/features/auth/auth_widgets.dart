@@ -9,7 +9,7 @@ class ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
+        color: FromoColors.danger.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -17,7 +17,10 @@ class ErrorBanner extends StatelessWidget {
           const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(message, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
+            child: Text(
+              message,
+              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+            ),
           ),
         ],
       ),
@@ -30,13 +33,13 @@ class AuthLabel extends StatelessWidget {
   const AuthLabel(this.text, {super.key});
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: FromoColors.gray700,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: FromoColors.gray700,
+    ),
+  );
 }
 
 class FromoLogo extends StatelessWidget {
@@ -70,29 +73,29 @@ class FromoLogo extends StatelessWidget {
 }
 
 InputDecoration authInputDeco(String hint) => InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: FromoColors.gray500, fontSize: 14),
-      filled: true,
-      fillColor: FromoColors.gray50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FromoColors.gray200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FromoColors.gray200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FromoColors.teal, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDC2626)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
-      ),
-    );
+  hintText: hint,
+  hintStyle: const TextStyle(color: FromoColors.gray500, fontSize: 14),
+  filled: true,
+  fillColor: FromoColors.gray50,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: FromoColors.gray200),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: FromoColors.gray200),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: FromoColors.teal, width: 1.5),
+  ),
+  errorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: Color(0xFFDC2626)),
+  ),
+  focusedErrorBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+  ),
+);

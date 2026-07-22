@@ -85,8 +85,8 @@ export default function Home() {
 
   function scoreToLevel(score) {
     if (score == null) return null;
-    if (score >= 0.67) return "busier";
-    if (score <= 0.33) return "not busy";
+    if (score >= 0.22) return "busier";
+    if (score <= 0.07) return "not busy";
     return "as usual";
   }
 

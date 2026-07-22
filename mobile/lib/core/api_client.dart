@@ -20,7 +20,13 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: _tokenKey);
+        String? token;
+        try {
+          token = await _storage.read(key: _tokenKey);
+        } catch (_) {
+          // Some embedded mobile browsers block secure storage APIs. Public
+          // endpoints should still load even when auth storage is unavailable.
+        }
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }

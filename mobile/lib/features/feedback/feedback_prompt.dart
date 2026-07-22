@@ -7,7 +7,7 @@ Future<FeedbackVote?> showAppFeedbackPrompt(BuildContext context) {
   return showModalBottomSheet<FeedbackVote>(
     context: context,
     showDragHandle: true,
-    backgroundColor: Colors.white,
+    backgroundColor: FromoColors.surface,
     builder: (_) => const _FeedbackPromptSheet(),
   );
 }
@@ -59,7 +59,7 @@ class _FeedbackPromptSheet extends StatelessWidget {
                   child: _VoteButton(
                     icon: Icons.thumb_down_alt_outlined,
                     label: 'Thumbs down',
-                    color: const Color(0xFFDC2626),
+                    color: FromoColors.danger,
                     onTap: () {
                       Navigator.of(context).pop(FeedbackVote.down);
                     },
@@ -114,10 +114,7 @@ class _VoteButton extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
             ),
           ],
         ),

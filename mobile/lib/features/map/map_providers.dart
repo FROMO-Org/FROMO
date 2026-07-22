@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,6 +27,16 @@ class LocationNotifier extends StateNotifier<LocationState> {
   LocationNotifier() : super(const LocationState());
 
   Future<void> requestLocation() async {
+    const useDemoLocation = bool.fromEnvironment('USE_DEMO_LOCATION');
+    if (kIsWeb && useDemoLocation) {
+      state = state.copyWith(
+        position: const LatLng(40.7580, -73.9855),
+        isLoading: false,
+        error: null,
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -140,7 +151,7 @@ class BusynessArea {
   final double lng;
   final int radiusMetres;
   final double? score;
-  final String? level; // 'busy' | 'moderate' | 'quiet'
+  final String? level; // 'not busy' | 'as usual' | 'busier'
 
   const BusynessArea({
     required this.id,
@@ -219,7 +230,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7580,
     lng: -73.9855,
     radiusMetres: 650,
-    level: 'busy',
+    level: 'busier',
   ),
   BusynessArea(
     id: 'sample-union-square',
@@ -227,7 +238,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7359,
     lng: -73.9911,
     radiusMetres: 550,
-    level: 'busy',
+    level: 'busier',
   ),
   BusynessArea(
     id: 'sample-greenwich',
@@ -235,7 +246,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7336,
     lng: -74.0027,
     radiusMetres: 600,
-    level: 'moderate',
+    level: 'as usual',
   ),
   BusynessArea(
     id: 'sample-lincoln',
@@ -243,7 +254,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7725,
     lng: -73.9835,
     radiusMetres: 500,
-    level: 'moderate',
+    level: 'as usual',
   ),
   BusynessArea(
     id: 'sample-les',
@@ -251,7 +262,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7180,
     lng: -73.9857,
     radiusMetres: 550,
-    level: 'quiet',
+    level: 'not busy',
   ),
   BusynessArea(
     id: 'sample-fidi',
@@ -259,7 +270,7 @@ const _sampleBusynessAreas = <BusynessArea>[
     lat: 40.7068,
     lng: -74.0090,
     radiusMetres: 600,
-    level: 'quiet',
+    level: 'not busy',
   ),
 ];
 
@@ -271,9 +282,10 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
   final location = ref.watch(locationProvider);
   final api = ref.watch(apiClientProvider);
 
-  try {
-    // Try with location first; fall back to all events if nothing nearby
-    if (location.position != null) {
+  // Try with location first; fall back to all events if nothing nearby or if
+  // the location-scoped request fails on a constrained mobile browser.
+  if (location.position != null) {
+    try {
       final res = await api.get<List<dynamic>>(
         '/events/',
         params: {
@@ -289,8 +301,12 @@ final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
           .map(EventListItem.fromJson)
           .toList();
       if (nearby.isNotEmpty) return _withVenueAccessibility(api, nearby);
+    } catch (_) {
+      // Continue to the all-events fallback below.
     }
+  }
 
+  try {
     // No location or no nearby events -> fetch all
     final res = await api.get<List<dynamic>>(
       '/events/',
