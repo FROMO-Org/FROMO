@@ -28,6 +28,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
     price: "",
     original_price: "",
     capacity: "",
+    image_url: "",
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,7 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
       capacity: form.capacity ? parseInt(form.capacity, 10) : null,
       description: form.description.trim() || null,
       category: form.category || null,
+      image_url: form.image_url.trim() || null,
       status:"active",
     };
 
@@ -194,6 +196,16 @@ export default function CreateListingModal({ orgId, onClose, onCreated }) {
               placeholder="What's happening? (optional)"
               rows={3}
               style={{ ...inputStyle, resize: "vertical" }}
+            />
+          </Field>
+
+          <Field label="Image URL">
+            <input
+              type="url"
+              value={form.image_url}
+              onChange={(e) => set("image_url", e.target.value)}
+              placeholder="Link to an image (optional)"
+              style={inputStyle}
             />
           </Field>
 

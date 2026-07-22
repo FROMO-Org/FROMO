@@ -26,6 +26,7 @@ export default function EditListingModal({ eventId, onClose, onUpdated }) {
     price: "",
     capacity: "",
     status: "active",
+    image_url: "",
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -44,6 +45,7 @@ export default function EditListingModal({ eventId, onClose, onUpdated }) {
           price: ev.price_cents != null ? String(ev.price_cents / 100) : "",
           capacity: ev.capacity != null ? String(ev.capacity) : "",
           status: ev.status ?? "active",
+          image_url: ev.image_url ?? "",
         });
         if (ev.venue_id) {
           getVenue(ev.venue_id)
@@ -76,6 +78,7 @@ export default function EditListingModal({ eventId, onClose, onUpdated }) {
       description: form.description.trim() || null,
       category: form.category || null,
       status: form.status,
+      image_url: form.image_url.trim() || null,
     };
 
     setSaving(true);
@@ -160,6 +163,16 @@ export default function EditListingModal({ eventId, onClose, onUpdated }) {
                 onChange={(e) => set("description", e.target.value)}
                 rows={3}
                 style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </Field>
+
+            <Field label="Image URL">
+              <input
+                type="url"
+                value={form.image_url}
+                onChange={(e) => set("image_url", e.target.value)}
+                placeholder="Link to an image (optional)"
+                style={inputStyle}
               />
             </Field>
 
