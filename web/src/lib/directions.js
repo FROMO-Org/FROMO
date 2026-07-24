@@ -19,6 +19,22 @@ export function getUserLocation() {
   });
 }
 
+export async function geocodeAddress(address) {
+  if (!ORS_API_KEY) throw new Error("NO_ORS_KEY");
+
+  const res = await fetch(
+    `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(address)}&size=1`
+  );
+  if (!res.ok) throw new Error(`ORS_${res.status}`);
+
+  const geojson = await res.json();
+  const feature = geojson?.features?.[0];
+  if (!feature) throw new Error("NO_MATCH");
+
+  const [lng, lat] = feature.geometry.coordinates;
+  return { lat, lng, label: feature.properties?.label ?? address };
+}
+
 export async function fetchRoute({ from, to, profile = "foot-walking" }) {
   if (!ORS_API_KEY) throw new Error("NO_ORS_KEY");
 
