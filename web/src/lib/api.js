@@ -73,12 +73,15 @@ export async function getDiscoverFeed({
   const locationParams = all
     ? { starts_after: now.toISOString(), starts_before: startOfDayAfterTomorrow.toISOString() }
     : { lat, lng, radius_km };
-  const [items, venues] = await Promise.all([
-    listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit }),
-    listVenues({ limit: 100 }),
-  ]);
+  const items = await listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit });
 
-  const venuesById = Object.fromEntries(venues.map((v) => [v.id, v]));
+  const uniqueVenueIds = [...new Set(items.map(({ venue }) => venue.id))];
+  const venues = await Promise.all(
+    uniqueVenueIds.map((id) => getVenue(id).catch(() => null))
+  );
+  const venuesById = Object.fromEntries(
+    venues.filter(Boolean).map((v) => [v.id, v])
+  );
 
   const BATCH = 4;
   const enriched = [];

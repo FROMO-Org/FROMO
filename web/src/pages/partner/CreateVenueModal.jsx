@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createVenue } from "../../lib/api";
-import { DEFAULT_CENTER } from "../../lib/config";
+import { geocodeAddress } from "../../lib/directions";
 
 const CATEGORIES = ["Music", "Food", "Art", "Sport", "Comedy", "Wellness", "Networking", "Other"];
 
@@ -9,15 +9,43 @@ export default function CreateVenueModal({ orgId, onClose, onCreated }) {
     name: "",
     address: "",
     category: "",
-    lat: DEFAULT_CENTER.lat,
-    lng: DEFAULT_CENTER.lng,
+    lat: "",
+    lng: "",
     is_accessible: false,
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeError, setGeocodeError] = useState(null);
+  const [resolvedLabel, setResolvedLabel] = useState(null);
+  const [manualMode, setManualMode] = useState(false);
+
   function set(key, val) {
     setForm((f) => ({ ...f, [key]: val }));
+  }
+
+  function handleAddressChange(val) {
+    set("address", val);
+    setResolvedLabel(null);
+    setGeocodeError(null);
+    if (!manualMode) { set("lat", ""); set("lng", ""); }
+  }
+
+  async function handleFindLocation() {
+    if (!form.address.trim()) { setGeocodeError("Enter an address first."); return; }
+    setGeocoding(true);
+    setGeocodeError(null);
+    try {
+      const { lat, lng, label } = await geocodeAddress(form.address.trim());
+      set("lat", lat);
+      set("lng", lng);
+      setResolvedLabel(label);
+    } catch {
+      setGeocodeError("Couldn't find that address — try refining it, or enter coordinates manually.");
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -27,7 +55,7 @@ export default function CreateVenueModal({ orgId, onClose, onCreated }) {
     if (!form.name.trim()) { setError("Venue name is required."); return; }
     const lat = parseFloat(form.lat);
     const lng = parseFloat(form.lng);
-    if (Number.isNaN(lat) || Number.isNaN(lng)) { setError("Latitude and longitude must be numbers."); return; }
+    if (Number.isNaN(lat) || Number.isNaN(lng)) { setError("Find a location for the address first (or enter coordinates manually)."); return; }
 
     setSaving(true);
     try {
@@ -89,37 +117,70 @@ export default function CreateVenueModal({ orgId, onClose, onCreated }) {
             />
           </Field>
 
-          <Field label="Address">
-            <input
-              value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-              placeholder="Street address (optional)"
-              style={inputStyle}
-            />
-          </Field>
+          <Field label="Address *">
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={form.address}
+                onChange={(e) => handleAddressChange(e.target.value)}
+                placeholder="e.g. 131 W 3rd St, New York, NY"
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={handleFindLocation}
+                disabled={geocoding}
+                style={{
+                  flexShrink: 0, background: geocoding ? "#888" : "#F5A623", color: "#231a09",
+                  border: "none", borderRadius: 8, padding: "0 16px", fontSize: 13, fontWeight: 700,
+                  cursor: geocoding ? "wait" : "pointer",
+                }}
+              >
+                {geocoding ? "Finding…" : "Find"}
+              </button>
+            </div>
 
-          <Row>
-            <Field label="Latitude *">
-              <input
-                required
-                type="number"
-                step="any"
-                value={form.lat}
-                onChange={(e) => set("lat", e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Longitude *">
-              <input
-                required
-                type="number"
-                step="any"
-                value={form.lng}
-                onChange={(e) => set("lng", e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-          </Row>
+            {resolvedLabel && (
+              <div style={{ fontSize: 12.5, color: "#2E9E6B", marginTop: 6 }}>
+                📍 Found: {resolvedLabel}
+              </div>
+            )}
+            {geocodeError && (
+              <div style={{ fontSize: 12.5, color: "#E53935", marginTop: 6 }}>
+                {geocodeError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setManualMode((v) => !v)}
+              style={{ background: "none", border: "none", padding: 0, marginTop: 8, fontSize: 12.5, fontWeight: 600, color: "var(--color-muted)", cursor: "pointer", textDecoration: "underline" }}
+            >
+              {manualMode ? "Hide manual coordinates" : "Enter coordinates manually instead"}
+            </button>
+
+            {manualMode && (
+              <Row>
+                <Field label="Latitude">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.lat}
+                    onChange={(e) => set("lat", e.target.value)}
+                    style={inputStyle}
+                  />
+                </Field>
+                <Field label="Longitude">
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.lng}
+                    onChange={(e) => set("lng", e.target.value)}
+                    style={inputStyle}
+                  />
+                </Field>
+              </Row>
+            )}
+          </Field>
 
           <Field label="Category">
             <select
