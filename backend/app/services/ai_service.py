@@ -1,12 +1,20 @@
+import logging
+import time
+
+import certifi
 import httpx2
 
 from app.core.config import GEMINI_API_KEY
+
+logger = logging.getLogger("uvicorn.error")
 
 GEMINI_MODEL = "gemini-flash-latest"
 GEMINI_ENDPOINT = (
     f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 )
-REQUEST_TIMEOUT_SECONDS = 10
+REQUEST_TIMEOUT_SECONDS = 30
+MAX_ATTEMPTS = 2
+RETRY_BACKOFF_SECONDS = 3
 
 
 def _format_price(price_cents: int | None, original_price_cents: int | None) -> str:
@@ -53,19 +61,44 @@ def generate_event_summary(event_info: dict) -> str | None:
     unexpected response) so that event creation is never blocked by the LLM.
     """
     if not GEMINI_API_KEY:
+        logger.warning("AI summary skipped: GEMINI_API_KEY is empty in this process")
         return None
 
     prompt = build_event_prompt(event_info)
-    try:
-        response = httpx2.post(
-            GEMINI_ENDPOINT,
-            params={"key": GEMINI_API_KEY},
-            json={"contents": [{"parts": [{"text": prompt}]}]},
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return text.strip() or None
-    except Exception:
-        return None
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = httpx2.post(
+                GEMINI_ENDPOINT,
+                params={"key": GEMINI_API_KEY},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=REQUEST_TIMEOUT_SECONDS,
+                verify=certifi.where(),
+            )
+            # Retry once on rate-limit / transient server errors; log the reason.
+            if response.status_code in (429, 500, 502, 503, 504):
+                logger.warning(
+                    "AI summary attempt %s/%s got HTTP %s: %s",
+                    attempt, MAX_ATTEMPTS, response.status_code, response.text[:200],
+                )
+                if attempt < MAX_ATTEMPTS:
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+                return None
+
+            response.raise_for_status()
+            data = response.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return text.strip() or None
+
+        except Exception as exc:
+            # Timeout / network / unexpected-shape: log it and retry once.
+            logger.warning(
+                "AI summary attempt %s/%s failed: %s", attempt, MAX_ATTEMPTS, exc
+            )
+            if attempt < MAX_ATTEMPTS:
+                time.sleep(RETRY_BACKOFF_SECONDS)
+                continue
+            return None
+
+    return None
