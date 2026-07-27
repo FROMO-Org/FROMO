@@ -26,11 +26,15 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container.read(eventFeedProvider(EventFeedScope.all).future);
+    await container.read(
+      eventFeedPageProvider((scope: EventFeedScope.all, offset: 0)).future,
+    );
 
     expect(capturedParams?['status'], 'active');
     expect(capturedParams?['limit'], 30);
+    expect(capturedParams?['offset'], 0);
     expect(capturedParams?['starts_after'], isNotNull);
+    expect(capturedParams?['starts_before'], isNotNull);
     expect(
       DateTime.parse(capturedParams!['starts_after'] as String).isUtc,
       isTrue,
@@ -63,14 +67,18 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container.read(eventFeedProvider(EventFeedScope.nearby).future);
+    await container.read(
+      eventFeedPageProvider((scope: EventFeedScope.nearby, offset: 30)).future,
+    );
 
     expect(capturedParams?['status'], 'active');
     expect(capturedParams?['limit'], 30);
+    expect(capturedParams?['offset'], 30);
     expect(capturedParams?['lat'], 53.3498);
     expect(capturedParams?['lng'], -6.2603);
     expect(capturedParams?['radius_km'], 1);
     expect(capturedParams, isNot(contains('starts_after')));
+    expect(capturedParams, isNot(contains('starts_before')));
   });
 }
 

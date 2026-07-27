@@ -278,27 +278,45 @@ const _sampleBusynessAreas = <BusynessArea>[
 
 enum EventFeedScope { nearby, all }
 
+typedef EventFeedRequest = ({EventFeedScope scope, int offset});
+
+class EventFeedPage {
+  final List<EventListItem> items;
+  final bool hasMore;
+
+  const EventFeedPage({required this.items, required this.hasMore});
+}
+
 const _eventFeedLimit = 30;
 const _nearbyEventRadiusKm = 1;
 
-final eventFeedProvider = FutureProvider.autoDispose
-    .family<List<EventListItem>, EventFeedScope>((ref, scope) async {
+final eventFeedPageProvider = FutureProvider.autoDispose
+    .family<EventFeedPage, EventFeedRequest>((ref, request) async {
       final location = ref.watch(locationProvider);
       final api = ref.watch(apiClientProvider);
+      final scope = request.scope;
 
       if (scope == EventFeedScope.nearby && location.position == null) {
-        return const [];
+        return const EventFeedPage(items: [], hasMore: false);
       }
 
       try {
         final params = <String, dynamic>{
           'status': 'active',
           'limit': _eventFeedLimit,
+          'offset': request.offset,
         };
         if (scope == EventFeedScope.all) {
-          // Match the web feed: filter before the backend applies its ascending
-          // starts_at sort and page limit, so old active rows cannot fill the page.
-          params['starts_after'] = DateTime.now().toUtc().toIso8601String();
+          final now = DateTime.now();
+          final startOfDayAfterTomorrow = DateTime(
+            now.year,
+            now.month,
+            now.day + 2,
+          );
+          params.addAll({
+            'starts_after': now.toUtc().toIso8601String(),
+            'starts_before': startOfDayAfterTomorrow.toUtc().toIso8601String(),
+          });
         } else {
           params.addAll({
             'lat': location.position!.latitude,
@@ -313,9 +331,12 @@ final eventFeedProvider = FutureProvider.autoDispose
             .cast<Map<String, dynamic>>()
             .map(EventListItem.fromJson)
             .toList();
-        return _withVenueAccessibility(api, items);
+        return EventFeedPage(
+          items: await _withVenueAccessibility(api, items),
+          hasMore: data.length == _eventFeedLimit,
+        );
       } catch (_) {
-        return const [];
+        return const EventFeedPage(items: [], hasMore: false);
       }
     });
 
