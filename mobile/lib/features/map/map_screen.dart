@@ -102,29 +102,21 @@ class _ActiveRoute {
   });
 }
 
-String? _categoryForItem(EventListItem item) =>
-    item.event.category ?? item.venue.category;
+String? _categoryForItem(EventListItem item) {
+  final eventCategory = item.event.category;
+  return eventCategory != null && eventCategory.isNotEmpty
+      ? eventCategory
+      : item.venue.category;
+}
 
 String _categoryKey(String? category) {
-  final normalized = (category ?? '').trim().toLowerCase();
-  if (normalized == 'sports') return 'sport';
-  if (normalized == 'arts' || normalized == 'arts and theatre') {
-    return 'art';
-  }
-  return normalized.replaceAll(RegExp(r'\s+'), ' ');
+  return (category ?? '').toLowerCase();
 }
 
 String _categoryLabel(String category) {
-  final trimmed = category.trim();
-  if (trimmed.isEmpty) return trimmed;
-  return trimmed
-      .split(RegExp(r'\s+'))
-      .map((word) {
-        if (word == '&') return word;
-        if (word.length <= 2) return word.toUpperCase();
-        return word[0].toUpperCase() + word.substring(1).toLowerCase();
-      })
-      .join(' ');
+  final normalized = _categoryKey(category);
+  if (normalized.isEmpty) return normalized;
+  return normalized[0].toUpperCase() + normalized.substring(1);
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -469,7 +461,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final locationState = ref.watch(locationProvider);
-    final eventsAsync = ref.watch(nearbyEventsProvider);
+    final eventsAsync = ref.watch(
+      eventFeedProvider(
+        _showAllEvents ? EventFeedScope.all : EventFeedScope.nearby,
+      ),
+    );
     final busynessAsync = ref.watch(busynessAreasProvider);
     final mapCenter = locationState.position ?? const LatLng(40.7580, -73.9855);
     final categoryFilters = _categoryFiltersFor(
@@ -639,8 +635,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   categoryFilters: categoryFilters,
                   onFilterChanged: (f) => setState(() => _activeFilter = f),
                   showAllEvents: _showAllEvents,
-                  onScopeChanged: (showAll) =>
-                      setState(() => _showAllEvents = showAll),
+                  onScopeChanged: (showAll) {
+                    if (_showAllEvents == showAll) return;
+                    setState(() {
+                      _showAllEvents = showAll;
+                      _activeFilter = _allCategoryFilter;
+                    });
+                  },
                   accessibleOnly: _accessibleOnly,
                   onAccessibleChanged: (value) =>
                       setState(() => _accessibleOnly = value),
@@ -691,14 +692,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final scopedItems = _showAllEvents
         ? categoryFilteredItems
         : _eventsWithinRadius(categoryFilteredItems, center, _searchRadiusKm);
-    final filteredItems = scopedItems.isEmpty
-        ? categoryFilteredItems
-        : scopedItems;
     final filteredAreas = _showAllEvents
         ? areas
         : _areasWithinRadius(areas, center, _searchRadiusKm);
     return _MapScopeData(
-      visibleItems: filteredItems,
+      visibleItems: scopedItems,
       visibleAreas: filteredAreas,
     );
   }
@@ -709,7 +707,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final rawCategory = _categoryForItem(item);
       final key = _categoryKey(rawCategory);
       if (key.isEmpty) continue;
-      if (key == 'undefined' || key == 'null' || key == 'unknown') continue;
       labelsByKey.putIfAbsent(key, () => _categoryLabel(rawCategory!));
     }
 
@@ -1426,7 +1423,7 @@ class _BottomPanel extends StatelessWidget {
                               location,
                               _searchRadiusKm,
                             ).isEmpty
-                          ? 'No events within ${_searchRadiusKm.toStringAsFixed(0)} km, showing all loaded events'
+                          ? 'No events within ${_searchRadiusKm.toStringAsFixed(0)} km of you'
                           : 'Showing events within ${_searchRadiusKm.toStringAsFixed(0)} km of you',
                       style: const TextStyle(
                         fontSize: 12,
@@ -1486,8 +1483,6 @@ class _BottomPanel extends StatelessWidget {
                 _searchRadiusKm,
               );
               final filtered = showAllEvents
-                  ? categoryFilteredItems
-                  : scopedItems.isEmpty
                   ? categoryFilteredItems
                   : scopedItems;
               final visibleAreas = showAllEvents

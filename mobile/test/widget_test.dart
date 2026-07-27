@@ -25,7 +25,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          nearbyEventsProvider.overrideWith((ref) async => []),
+          eventFeedProvider.overrideWith((ref, scope) async => []),
           busynessAreasProvider.overrideWith((ref) async => []),
         ],
         child: const FroMoApp(),

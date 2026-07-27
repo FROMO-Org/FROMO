@@ -1,5 +1,6 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +8,8 @@ import '../../core/api_client.dart';
 import '../../shared/models/event.dart';
 
 // ── Location ──────────────────────────────────────────────────────────────────
+
+const _defaultLocation = LatLng(40.7580, -73.9855);
 
 class LocationState {
   final LatLng? position;
@@ -27,25 +30,12 @@ class LocationNotifier extends StateNotifier<LocationState> {
   LocationNotifier() : super(const LocationState());
 
   Future<void> requestLocation() async {
-    const useDemoLocation = bool.fromEnvironment('USE_DEMO_LOCATION');
-    if (kIsWeb && useDemoLocation) {
-      state = state.copyWith(
-        position: const LatLng(40.7580, -73.9855),
-        isLoading: false,
-        error: null,
-      );
-      return;
-    }
-
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Location services disabled',
-        );
+        _useDefaultLocation();
         return;
       }
 
@@ -53,35 +43,36 @@ class LocationNotifier extends StateNotifier<LocationState> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          state = state.copyWith(
-            isLoading: false,
-            error: 'Location permission denied',
-          );
+          _useDefaultLocation();
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Location permission permanently denied',
-        );
+        _useDefaultLocation();
         return;
       }
 
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
         ),
       );
+      final location = LatLng(pos.latitude, pos.longitude);
 
-      state = state.copyWith(
-        position: LatLng(pos.latitude, pos.longitude),
-        isLoading: false,
+      state = LocationState(
+        position: _matchesWebLocationBounds(location)
+            ? location
+            : _defaultLocation,
       );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+    } catch (_) {
+      _useDefaultLocation();
     }
+  }
+
+  void _useDefaultLocation() {
+    state = const LocationState(position: _defaultLocation);
   }
 
   void setFallbackPosition(LatLng position) {
@@ -90,12 +81,21 @@ class LocationNotifier extends StateNotifier<LocationState> {
   }
 }
 
+bool _matchesWebLocationBounds(LatLng location) {
+  final latitudeDelta = location.latitude - _defaultLocation.latitude;
+  final longitudeDelta = location.longitude - _defaultLocation.longitude;
+  return math.sqrt(
+        latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta,
+      ) <=
+      1.0;
+}
+
 final locationProvider = StateNotifierProvider<LocationNotifier, LocationState>(
   (_) => LocationNotifier(),
 );
 
 LatLng eventClusterCenter(List<EventListItem> events) {
-  if (events.isEmpty) return const LatLng(40.7580, -73.9855);
+  if (events.isEmpty) return _defaultLocation;
 
   final buckets = <String, List<EventListItem>>{};
   for (final item in events) {
@@ -276,52 +276,48 @@ const _sampleBusynessAreas = <BusynessArea>[
 
 // ── Nearby Events ─────────────────────────────────────────────────────────────
 
-final nearbyEventsProvider = FutureProvider.autoDispose<List<EventListItem>>((
-  ref,
-) async {
-  final location = ref.watch(locationProvider);
-  final api = ref.watch(apiClientProvider);
+enum EventFeedScope { nearby, all }
 
-  // Try with location first; fall back to all events if nothing nearby or if
-  // the location-scoped request fails on a constrained mobile browser.
-  if (location.position != null) {
-    try {
-      final res = await api.get<List<dynamic>>(
-        '/events/',
-        params: {
+const _eventFeedLimit = 30;
+const _nearbyEventRadiusKm = 1;
+
+final eventFeedProvider = FutureProvider.autoDispose
+    .family<List<EventListItem>, EventFeedScope>((ref, scope) async {
+      final location = ref.watch(locationProvider);
+      final api = ref.watch(apiClientProvider);
+
+      if (scope == EventFeedScope.nearby && location.position == null) {
+        return const [];
+      }
+
+      try {
+        final params = <String, dynamic>{
           'status': 'active',
-          'limit': 50,
-          'lat': location.position!.latitude,
-          'lng': location.position!.longitude,
-          'radius_km': 20,
-        },
-      );
-      final nearby = (res.data ?? [])
-          .cast<Map<String, dynamic>>()
-          .map(EventListItem.fromJson)
-          .toList();
-      if (nearby.isNotEmpty) return _withVenueAccessibility(api, nearby);
-    } catch (_) {
-      // Continue to the all-events fallback below.
-    }
-  }
+          'limit': _eventFeedLimit,
+        };
+        if (scope == EventFeedScope.all) {
+          // Match the web feed: filter before the backend applies its ascending
+          // starts_at sort and page limit, so old active rows cannot fill the page.
+          params['starts_after'] = DateTime.now().toUtc().toIso8601String();
+        } else {
+          params.addAll({
+            'lat': location.position!.latitude,
+            'lng': location.position!.longitude,
+            'radius_km': _nearbyEventRadiusKm,
+          });
+        }
 
-  try {
-    // No location or no nearby events -> fetch all
-    final res = await api.get<List<dynamic>>(
-      '/events/',
-      params: {'status': 'active', 'limit': 50},
-    );
-    final data = res.data ?? [];
-    final items = data
-        .cast<Map<String, dynamic>>()
-        .map(EventListItem.fromJson)
-        .toList();
-    return _withVenueAccessibility(api, items);
-  } catch (_) {
-    return const [];
-  }
-});
+        final res = await api.get<List<dynamic>>('/events/', params: params);
+        final data = res.data ?? [];
+        final items = data
+            .cast<Map<String, dynamic>>()
+            .map(EventListItem.fromJson)
+            .toList();
+        return _withVenueAccessibility(api, items);
+      } catch (_) {
+        return const [];
+      }
+    });
 
 Future<List<EventListItem>> _withVenueAccessibility(
   ApiClient api,
