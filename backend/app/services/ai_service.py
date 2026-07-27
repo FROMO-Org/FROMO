@@ -68,25 +68,27 @@ def generate_event_summary(event_info: dict) -> str | None:
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
+            # Auth via the documented x-goog-api-key header (works for AQ. auth keys).
             response = httpx2.post(
                 GEMINI_ENDPOINT,
-                params={"key": GEMINI_API_KEY},
+                headers={"x-goog-api-key": GEMINI_API_KEY},
                 json={"contents": [{"parts": [{"text": prompt}]}]},
                 timeout=REQUEST_TIMEOUT_SECONDS,
                 verify=certifi.where(),
             )
-            # Retry once on rate-limit / transient server errors; log the reason.
-            if response.status_code in (429, 500, 502, 503, 504):
+            if response.status_code != 200:
+                # Log Google's ACTUAL error body so a failure is diagnosable,
+                # not just "400 Bad Request".
                 logger.warning(
-                    "AI summary attempt %s/%s got HTTP %s: %s",
-                    attempt, MAX_ATTEMPTS, response.status_code, response.text[:200],
+                    "AI summary attempt %s/%s: Gemini HTTP %s -- %s",
+                    attempt, MAX_ATTEMPTS, response.status_code, response.text[:300],
                 )
-                if attempt < MAX_ATTEMPTS:
+                # Only transient errors are worth a retry; a 4xx won't change.
+                if response.status_code in (429, 500, 502, 503, 504) and attempt < MAX_ATTEMPTS:
                     time.sleep(RETRY_BACKOFF_SECONDS)
                     continue
                 return None
 
-            response.raise_for_status()
             data = response.json()
             text = data["candidates"][0]["content"]["parts"][0]["text"]
             return text.strip() or None
