@@ -7,7 +7,6 @@ import {
   Marker,
   Popup,
   GeoJSON,
-  Circle,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -67,7 +66,7 @@ function userLocationIcon() {
   });
 }
 
-export default function EventMap({ events, busynessAreas = [], getNearestBusynessLevel, focus, route, onSelect, userLocation }) {
+export default function EventMap({ events, getNearestBusynessLevel, focus, route, onSelect, userLocation }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isDark } = useTheme();
@@ -104,22 +103,6 @@ export default function EventMap({ events, busynessAreas = [], getNearestBusynes
         maxZoom={20}
       />
 
-      {busynessAreas.map((item, i) => {
-        const a = item.area ?? item;
-        if (a.lat == null || a.lng == null) return null;
-        if (!item.score?.level) return null;
-        const levelColor = { "not busy": "#2E9E6B", "as usual": "#F5A623", "busier": "#E53935" };
-        const color = levelColor[item.score.level] ?? "#F5A623";
-        return (
-          <Circle
-            key={i}
-            center={[Number(a.lat), Number(a.lng)]}
-            radius={a.radius_metres ?? 400}
-            pathOptions={{ color, fillColor: color, fillOpacity: 0.3, weight: 0 }}
-          />
-        );
-      })}
-
       {venueGroups.map(({ venue: v, events: evs }) => (
         <Marker
           key={`${v.lat},${v.lng}`}
@@ -151,7 +134,7 @@ export default function EventMap({ events, busynessAreas = [], getNearestBusynes
         <GeoJSON
           key={JSON.stringify(route).slice(0, 64)}
           data={route}
-          style={{ color: "#14110E", weight: 4, opacity: 0.8 }}
+          style={{ color: isDark ? "#F5F0E8" : "#14110E", weight: 4, opacity: 0.8 }}
         />
       )}
 

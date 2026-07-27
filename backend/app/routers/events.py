@@ -17,6 +17,7 @@ from app.schemas import (
     PublicEventResponse,
     UpdateEventBody,
 )
+from app.services.ai_service import generate_event_summary
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -130,6 +131,19 @@ def create_event(
     if venue.organisation_id != body.host_organisation_id:
         raise HTTPException(status_code=400, detail="Venue does not belong to this organisation")
 
+    ai_summary = generate_event_summary(
+        {
+            "title": body.title,
+            "description": body.description,
+            "category": body.category,
+            "price_cents": body.price_cents,
+            "original_price_cents": body.original_price_cents,
+            "starts_at": body.starts_at.isoformat() if body.starts_at else None,
+            "venue_name": venue.name,
+            "venue_address": venue.address,
+        }
+    )
+
     event = Event(
         title=body.title,
         venue_id=body.venue_id,
@@ -144,6 +158,7 @@ def create_event(
         description=body.description,
         url=body.url,
         image_url=body.image_url,
+        ai_summary=ai_summary,
     )
 
     session.add(event)

@@ -31,12 +31,16 @@ export const getEvent = (id) => api.get(`/events/${id}`).then((r) => r.data);
 export const listVenues = (params = {}) =>
   api.get("/venues/", { params }).then((r) => r.data);
 export const getVenue = (id) => api.get(`/venues/${id}`).then((r) => r.data);
+export const createVenue = (body) =>
+  api.post("/venues/", body).then((r) => r.data);
 
 export const getBusynessNearby = (params = {}) =>
   api.get("/busyness/nearby", { params }).then((r) => r.data);
 
 export const createEvent = (body) =>
   api.post("/events/", body).then((r) => r.data);
+export const updateEvent = (id, body) =>
+  api.patch(`/events/${id}`, body).then((r) => r.data);
 
 export const getMyOrganisations = () =>
   api.get("/organisations/me").then((r) => r.data);
@@ -62,19 +66,23 @@ export async function getDiscoverFeed({
   lng = DEFAULT_CENTER.lng,
   radius_km = DEFAULT_RADIUS_KM,
   limit = FEED_LIMIT,
+  offset = 0,
   all = false,
 } = {}) {
-  // Non-geo /events/ query sorts by starts_at ascending with a hard limit — without
-  // this, long-past seed events can fill the whole page before any current one appears.
+  const now = new Date();
+  const startOfDayAfterTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
   const locationParams = all
-    ? { starts_after: new Date().toISOString() }
+    ? { starts_after: now.toISOString(), starts_before: startOfDayAfterTomorrow.toISOString() }
     : { lat, lng, radius_km };
-  const [items, venues] = await Promise.all([
-    listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit }),
-    listVenues({ limit: 100 }),
-  ]);
+  const items = await listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit, offset });
 
-  const venuesById = Object.fromEntries(venues.map((v) => [v.id, v]));
+  const uniqueVenueIds = [...new Set(items.map(({ venue }) => venue.id))];
+  const venues = await Promise.all(
+    uniqueVenueIds.map((id) => getVenue(id).catch(() => null))
+  );
+  const venuesById = Object.fromEntries(
+    venues.filter(Boolean).map((v) => [v.id, v])
+  );
 
   const BATCH = 4;
   const enriched = [];
@@ -102,5 +110,5 @@ export async function getDiscoverFeed({
     enriched.push(...results);
   }
 
-  return enriched;
+  return { items: enriched, hasMore: items.length === limit };
 }

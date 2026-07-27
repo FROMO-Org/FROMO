@@ -16,6 +16,11 @@ from app.database import get_session  # noqa: E402
 from app.middleware.auth import get_current_user  # noqa: E402
 from main import app as fastapi_app  # noqa: E402
 
+# The startup hook runs ensure_minimum_schema() against a real Postgres.
+# Tests must stay DB-free, so drop all startup handlers before TestClient
+# ever enters the app's lifespan.
+fastapi_app.router.on_startup.clear()
+
 
 TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 TEST_ORGANISATION_ID = "00000000-0000-0000-0000-000000000010"

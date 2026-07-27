@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import EventCard from "../components/EventCard.jsx";
 import EventMap from "../components/EventMap.jsx";
 import { getDiscoverFeed, getBusynessNearby, getSavedEvents, saveEvent, unsaveEvent } from "../lib/api.js";
-import { fetchRoute, googleMapsUrl } from "../lib/directions.js";
+import { fetchRoute, googleMapsUrl, getUserLocation } from "../lib/directions.js";
 import { DEFAULT_CENTER } from "../lib/config.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -15,6 +15,15 @@ function hasEventEnded(e) {
   return end <= new Date();
 }
 
+function isTodayOrTomorrow(e) {
+  const start = new Date(e.starts_at);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDayAfterTomorrow = new Date(startOfToday);
+  startOfDayAfterTomorrow.setDate(startOfDayAfterTomorrow.getDate() + 2);
+  return start >= startOfToday && start < startOfDayAfterTomorrow;
+}
+
 export default function Home() {
   const { user, profile } = useAuth();
   const isStudent = !profile || profile.user_type === "student";
@@ -23,29 +32,51 @@ export default function Home() {
   const [status, setStatus] = useState("loading");
   const [selectedId, setSelectedId] = useState(null);
   const [route, setRoute] = useState(null);
+  const [routeError, setRouteError] = useState(null);
+  const mapSectionRef = useRef(null);
   const [busynessAreas, setBusynessAreas] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [accessibleOnly, setAccessibleOnly] = useState(false);
   const [savedIds, setSavedIds] = useState(new Set());
   const [savePrompt, setSavePrompt] = useState(false);
   const [feedMode, setFeedMode] = useState("all");
   const [userLoc, setUserLoc] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  function feedParams() {
+    return feedMode === "nearby"
+      ? { lat: userLoc.lat, lng: userLoc.lng, radius_km: 1 }
+      : { all: true };
+  }
 
   useEffect(() => {
     if (feedMode === "nearby" && userLoc === null) return;
     let alive = true;
     setStatus("loading");
-    const params = feedMode === "nearby"
-      ? { lat: userLoc.lat, lng: userLoc.lng, radius_km: 1 }
-      : { all: true };
-    getDiscoverFeed(params)
-      .then((data) => {
+    getDiscoverFeed(feedParams())
+      .then(({ items, hasMore: more }) => {
         if (!alive) return;
-        setEvents(data);
-        setStatus(data.length ? "ready" : "empty");
+        setEvents(items);
+        setHasMore(more);
+        setStatus(items.length ? "ready" : "empty");
       })
       .catch(() => alive && setStatus("error"));
     return () => { alive = false; };
   }, [feedMode, userLoc]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const { items, hasMore: more } = await getDiscoverFeed({ ...feedParams(), offset: events.length });
+      setEvents((prev) => [...prev, ...items]);
+      setHasMore(more);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     getBusynessNearby({
@@ -130,7 +161,10 @@ export default function Home() {
     }
   }
 
-  const activeEvents = useMemo(() => events.filter((e) => !hasEventEnded(e)), [events]);
+  const activeEvents = useMemo(
+    () => events.filter((e) => !hasEventEnded(e) && isTodayOrTomorrow(e)),
+    [events]
+  );
 
   const categories = useMemo(() => {
     const seen = new Set();
@@ -142,12 +176,13 @@ export default function Home() {
   }, [activeEvents]);
 
   const filteredEvents = useMemo(() => {
-    if (activeCategory === "all") return activeEvents;
     return activeEvents.filter((e) => {
+      if (accessibleOnly && !e.venue?.is_accessible) return false;
+      if (activeCategory === "all") return true;
       const cat = (e.category || e.venue?.category || "").toLowerCase();
       return cat === activeCategory;
     });
-  }, [activeEvents, activeCategory]);
+  }, [activeEvents, activeCategory, accessibleOnly]);
 
   const focus = useMemo(() => {
     const e = activeEvents.find((x) => x.id === selectedId);
@@ -174,13 +209,16 @@ export default function Home() {
     const v = event.venue || {};
     const dest = { lat: v.lat, lng: v.lng };
     setSelectedId(event.id);
+    setRouteError(null);
+    mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     try {
       const from = await getUserLocation();
       const profile = v.is_accessible ? "wheelchair" : "foot-walking";
       const { geojson } = await fetchRoute({ from, to: dest, profile });
       setRoute(geojson);
     } catch {
-      window.open(googleMapsUrl(dest), "_blank", "noopener");
+      setRoute(null);
+      setRouteError({ dest, eventTitle: event.title });
     }
   }
 
@@ -200,15 +238,14 @@ export default function Home() {
         <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 font-mono text-[13px] text-muted">
           <span className="live-dot" aria-hidden="true" />
           {feedMode === "nearby" ? "NEARBY · LIVE · 1KM" : "MANHATTAN · LIVE · ALL"}
-          {status === "ready" ? ` · ${activeEvents.length} EVENTS` : ""}
+          {status === "ready" ? ` · ${filteredEvents.length}${hasMore ? "+" : ""} EVENTS` : ""}
         </div>
       </section>
 
-      <div className="px-10 pb-8 xl:px-16">
+      <div ref={mapSectionRef} className="px-10 pb-8 xl:px-16" style={{ scrollMarginTop: 80 }}>
         <div className="relative h-[50vh] min-h-[400px] overflow-hidden rounded-2xl border border-line">
           <EventMap
             events={activeEvents}
-            busynessAreas={busynessAreas}
             getNearestBusynessLevel={getNearestBusynessLevel}
             focus={focus}
             route={route}
@@ -234,6 +271,36 @@ export default function Home() {
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E53935", display: "inline-block" }} /> Busier
               </span>
+            </div>
+          )}
+
+          {routeError && (
+            <div style={{
+              position: "absolute", top: 8, right: 8, zIndex: 1000,
+              maxWidth: 280,
+              background: "var(--color-paper)", border: "1px solid var(--color-line)",
+              borderRadius: 10, padding: "10px 14px",
+              display: "flex", flexDirection: "column", gap: 6,
+              fontSize: 12.5, color: "var(--color-ink)",
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <span>Couldn't load a route to {routeError.eventTitle}.</span>
+                <button
+                  onClick={() => setRouteError(null)}
+                  aria-label="Dismiss"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-muted)", fontSize: 14, lineHeight: 1, padding: 0, flexShrink: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+              <a
+                href={googleMapsUrl(routeError.dest)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#F5A623", fontWeight: 700, textDecoration: "none" }}
+              >
+                Open in Google Maps instead →
+              </a>
             </div>
           )}
         </div>
@@ -267,6 +334,12 @@ export default function Home() {
               ))}
             </>
           )}
+          <span className="h-4 w-px bg-line mx-1" />
+          <CategoryTab
+            label="Wheelchair Accessible"
+            active={accessibleOnly}
+            onClick={() => setAccessibleOnly((v) => !v)}
+          />
         </div>
 
         {status === "loading" && <FeedNote>Loading what's nearby…</FeedNote>}
@@ -289,7 +362,11 @@ export default function Home() {
         )}
 
         {status === "ready" && filteredEvents.length === 0 && (
-          <FeedNote>No {activeCategory} events {feedMode === "nearby" ? "near you" : "in Manhattan"} right now.</FeedNote>
+          <FeedNote>
+            No {accessibleOnly ? "wheelchair accessible " : ""}{activeCategory === "all" ? "" : `${activeCategory} `}
+            events {feedMode === "nearby" ? "near you" : "in Manhattan"} right now
+            {accessibleOnly ? " — no venues are marked accessible yet" : ""}.
+          </FeedNote>
         )}
 
         {status === "ready" && filteredEvents.length > 0 && (
@@ -306,6 +383,19 @@ export default function Home() {
                 busynessLevel={getNearestBusynessLevel(e.venue?.lat, e.venue?.lng)}
               />
             ))}
+          </div>
+        )}
+
+        {status === "ready" && hasMore && activeCategory === "all" && !accessibleOnly && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="rounded-full border border-ink px-5 py-2 text-[13px] font-semibold"
+              style={{ cursor: loadingMore ? "wait" : "pointer", opacity: loadingMore ? 0.7 : 1 }}
+            >
+              {loadingMore ? "Loading…" : "Load more events"}
+            </button>
           </div>
         )}
       </section>
@@ -351,19 +441,4 @@ function FeedNote({ children }) {
       {children}
     </div>
   );
-}
-
-function getUserLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(DEFAULT_CENTER);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const distDeg = Math.hypot(loc.lat - DEFAULT_CENTER.lat, loc.lng - DEFAULT_CENTER.lng);
-        resolve(distDeg > 1.0 ? DEFAULT_CENTER : loc);
-      },
-      () => resolve(DEFAULT_CENTER),
-      { timeout: 5000 }
-    );
-  });
 }
