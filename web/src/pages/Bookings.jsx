@@ -4,6 +4,14 @@ import { getMyBookings, cancelBooking } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { formatPrice } from "../lib/format.js";
 
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7" />
+    </svg>
+  );
+}
+
 function formatEventDate(iso) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString(undefined, {
@@ -57,6 +65,13 @@ export default function Bookings() {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
+      <button
+        onClick={() => navigate(-1)}
+        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--color-ink)", fontWeight: 600, fontSize: 14, padding: 0, marginBottom: 20 }}
+      >
+        <BackIcon /> Back
+      </button>
+
       <h1 style={{ fontSize: 26, fontWeight: 800, fontFamily: '"Bricolage Grotesque", Inter, system-ui', letterSpacing: "-0.02em", margin: "0 0 28px", color: "var(--color-ink)" }}>
         My Bookings
       </h1>

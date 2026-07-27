@@ -93,11 +93,13 @@ export default function Settings() {
               return (
                 <div
                   key={eventId}
+                  onClick={() => navigate(`/events/${eventId}`, { state: { event: ev } })}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     gap: 12, padding: "12px 14px", borderRadius: 10,
                     border: "1px solid var(--color-line)",
                     background: "rgba(245,166,35,0.05)",
+                    cursor: "pointer",
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
@@ -109,7 +111,7 @@ export default function Settings() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleUnsave(eventId)}
+                    onClick={(e) => { e.stopPropagation(); handleUnsave(eventId); }}
                     style={{
                       flexShrink: 0, background: "none", border: "1px solid var(--color-line)",
                       borderRadius: 8, padding: "5px 10px", fontSize: 12,
