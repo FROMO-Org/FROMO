@@ -3,8 +3,15 @@ Tests for the AI event-summary service.
 The Gemini HTTP call is mocked — no network, no API key needed.
 """
 import httpx2
+import pytest
 
 from app.services import ai_service
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_backoff(monkeypatch):
+    # Keep retry tests instant — no real sleeping.
+    monkeypatch.setattr(ai_service, "RETRY_BACKOFF_SECONDS", 0)
 
 
 class TestBuildEventPrompt:
@@ -41,11 +48,8 @@ class TestBuildEventPrompt:
 class _FakeResponse:
     def __init__(self, payload, status_ok=True):
         self._payload = payload
-        self._status_ok = status_ok
-
-    def raise_for_status(self):
-        if not self._status_ok:
-            raise httpx2.HTTPStatusError("error", request=None, response=None)
+        self.status_code = 200 if status_ok else 400
+        self.text = "" if status_ok else '{"error": {"message": "bad request"}}'
 
     def json(self):
         return self._payload
