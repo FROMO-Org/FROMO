@@ -24,7 +24,7 @@ vi.mock("axios", () => ({
 }));
 
 // Import after mocks are registered
-const { getDiscoverFeed, listEvents, listVenues, getEvent } = await import("../api.js");
+const { getDiscoverFeed } = await import("../api.js");
 
 const sampleEvent = {
   id: "evt-1",
@@ -59,51 +59,76 @@ describe("getDiscoverFeed", () => {
       .mockResolvedValueOnce({
         data: [{ event: sampleEvent, distance_km: 0.5, venue: sampleVenueSummary }],
       })
-      .mockResolvedValueOnce({ data: [sampleVenueFull] });
+      .mockResolvedValueOnce({ data: sampleVenueFull });
 
     const feed = await getDiscoverFeed({ lat: 40.73, lng: -73.99 });
 
-    expect(feed).toHaveLength(1);
-    expect(feed[0].title).toBe("Jazz Night");
-    expect(feed[0].venue.category).toBe("Jazz Club");
-    expect(feed[0].venue.address).toBe("131 W 3rd St");
-    expect(feed[0].venue.is_accessible).toBe(true);
-    expect(feed[0].distance_km).toBe(0.5);
+    expect(feed.items).toHaveLength(1);
+    expect(feed.items[0].title).toBe("Jazz Night");
+    expect(feed.items[0].venue.category).toBe("Jazz Club");
+    expect(feed.items[0].venue.address).toBe("131 W 3rd St");
+    expect(feed.items[0].venue.is_accessible).toBe(true);
+    expect(feed.items[0].distance_km).toBe(0.5);
   });
 
-  it("falls back to null fields when venue is missing from venues list", async () => {
+  it("falls back to null fields when the venue lookup fails", async () => {
     mockGet
       .mockResolvedValueOnce({
         data: [{ event: sampleEvent, distance_km: 1.2, venue: sampleVenueSummary }],
       })
-      .mockResolvedValueOnce({ data: [] }); // no venues returned
+      .mockRejectedValueOnce(new Error("not found")); // individual getVenue() call fails
 
     const feed = await getDiscoverFeed({ lat: 40.73, lng: -73.99 });
 
-    expect(feed[0].venue.category).toBeNull();
-    expect(feed[0].venue.address).toBeNull();
-    expect(feed[0].venue.is_accessible).toBeNull();
+    expect(feed.items[0].venue.category).toBeNull();
+    expect(feed.items[0].venue.address).toBeNull();
+    expect(feed.items[0].venue.is_accessible).toBeNull();
   });
 
-  it("calls events and venues endpoints concurrently", async () => {
+  it("fetches only the specific venues referenced by the returned events", async () => {
     mockGet
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({
+        data: [{ event: sampleEvent, distance_km: 0.5, venue: sampleVenueSummary }],
+      })
+      .mockResolvedValueOnce({ data: sampleVenueFull });
 
     await getDiscoverFeed({ lat: 40.73, lng: -73.99 });
 
     expect(mockGet).toHaveBeenCalledTimes(2);
-    const [eventsCall, venuesCall] = mockGet.mock.calls;
+    const [eventsCall, venueCall] = mockGet.mock.calls;
     expect(eventsCall[0]).toContain("/events/");
-    expect(venuesCall[0]).toContain("/venues/");
+    expect(venueCall[0]).toBe("/venues/venue-1");
   });
 
-  it("returns an empty array when no events are found", async () => {
-    mockGet
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [sampleVenueFull] });
+  it("returns an empty items array and hasMore=false when no events are found", async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
 
     const feed = await getDiscoverFeed();
-    expect(feed).toEqual([]);
+    expect(feed).toEqual({ items: [], hasMore: false });
+  });
+
+  it("reports hasMore=true when a full page of results comes back", async () => {
+    const fullPage = Array.from({ length: 3 }, (_, i) => ({
+      event: { ...sampleEvent, id: `evt-${i}` },
+      distance_km: 0.1,
+      venue: sampleVenueSummary,
+    }));
+    mockGet
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValue({ data: sampleVenueFull });
+
+    const feed = await getDiscoverFeed({ lat: 40.73, lng: -73.99, limit: 3 });
+    expect(feed.hasMore).toBe(true);
+  });
+
+  it("reports hasMore=false when fewer results than the limit come back", async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        data: [{ event: sampleEvent, distance_km: 0.5, venue: sampleVenueSummary }],
+      })
+      .mockResolvedValueOnce({ data: sampleVenueFull });
+
+    const feed = await getDiscoverFeed({ lat: 40.73, lng: -73.99, limit: 30 });
+    expect(feed.hasMore).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import Home from "./pages/Home.jsx";
@@ -15,6 +16,10 @@ import Bookings from "./pages/Bookings.jsx";
 export default function App() {
   const { pathname } = useLocation();
   const isPartner = pathname.startsWith("/partner");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   return (
     <div className="flex min-h-full flex-col">

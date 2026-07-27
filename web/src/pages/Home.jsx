@@ -41,23 +41,42 @@ export default function Home() {
   const [savePrompt, setSavePrompt] = useState(false);
   const [feedMode, setFeedMode] = useState("all");
   const [userLoc, setUserLoc] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  function feedParams() {
+    return feedMode === "nearby"
+      ? { lat: userLoc.lat, lng: userLoc.lng, radius_km: 1 }
+      : { all: true };
+  }
 
   useEffect(() => {
     if (feedMode === "nearby" && userLoc === null) return;
     let alive = true;
     setStatus("loading");
-    const params = feedMode === "nearby"
-      ? { lat: userLoc.lat, lng: userLoc.lng, radius_km: 1 }
-      : { all: true };
-    getDiscoverFeed(params)
-      .then((data) => {
+    getDiscoverFeed(feedParams())
+      .then(({ items, hasMore: more }) => {
         if (!alive) return;
-        setEvents(data);
-        setStatus(data.length ? "ready" : "empty");
+        setEvents(items);
+        setHasMore(more);
+        setStatus(items.length ? "ready" : "empty");
       })
       .catch(() => alive && setStatus("error"));
     return () => { alive = false; };
   }, [feedMode, userLoc]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const { items, hasMore: more } = await getDiscoverFeed({ ...feedParams(), offset: events.length });
+      setEvents((prev) => [...prev, ...items]);
+      setHasMore(more);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     getBusynessNearby({
@@ -219,7 +238,7 @@ export default function Home() {
         <div className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 font-mono text-[13px] text-muted">
           <span className="live-dot" aria-hidden="true" />
           {feedMode === "nearby" ? "NEARBY · LIVE · 1KM" : "MANHATTAN · LIVE · ALL"}
-          {status === "ready" ? ` · ${activeEvents.length} EVENTS` : ""}
+          {status === "ready" ? ` · ${filteredEvents.length}${hasMore ? "+" : ""} EVENTS` : ""}
         </div>
       </section>
 
@@ -364,6 +383,19 @@ export default function Home() {
                 busynessLevel={getNearestBusynessLevel(e.venue?.lat, e.venue?.lng)}
               />
             ))}
+          </div>
+        )}
+
+        {status === "ready" && hasMore && activeCategory === "all" && !accessibleOnly && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="rounded-full border border-ink px-5 py-2 text-[13px] font-semibold"
+              style={{ cursor: loadingMore ? "wait" : "pointer", opacity: loadingMore ? 0.7 : 1 }}
+            >
+              {loadingMore ? "Loading…" : "Load more events"}
+            </button>
           </div>
         )}
       </section>

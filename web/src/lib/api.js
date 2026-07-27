@@ -66,6 +66,7 @@ export async function getDiscoverFeed({
   lng = DEFAULT_CENTER.lng,
   radius_km = DEFAULT_RADIUS_KM,
   limit = FEED_LIMIT,
+  offset = 0,
   all = false,
 } = {}) {
   const now = new Date();
@@ -73,7 +74,7 @@ export async function getDiscoverFeed({
   const locationParams = all
     ? { starts_after: now.toISOString(), starts_before: startOfDayAfterTomorrow.toISOString() }
     : { lat, lng, radius_km };
-  const items = await listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit });
+  const items = await listEvents({ status: PUBLIC_EVENT_STATUS, ...locationParams, limit, offset });
 
   const uniqueVenueIds = [...new Set(items.map(({ venue }) => venue.id))];
   const venues = await Promise.all(
@@ -109,5 +110,5 @@ export async function getDiscoverFeed({
     enriched.push(...results);
   }
 
-  return enriched;
+  return { items: enriched, hasMore: items.length === limit };
 }
