@@ -102,29 +102,21 @@ class _ActiveRoute {
   });
 }
 
-String? _categoryForItem(EventListItem item) =>
-    item.event.category ?? item.venue.category;
+String? _categoryForItem(EventListItem item) {
+  final eventCategory = item.event.category;
+  return eventCategory != null && eventCategory.isNotEmpty
+      ? eventCategory
+      : item.venue.category;
+}
 
 String _categoryKey(String? category) {
-  final normalized = (category ?? '').trim().toLowerCase();
-  if (normalized == 'sports') return 'sport';
-  if (normalized == 'arts' || normalized == 'arts and theatre') {
-    return 'art';
-  }
-  return normalized.replaceAll(RegExp(r'\s+'), ' ');
+  return (category ?? '').toLowerCase();
 }
 
 String _categoryLabel(String category) {
-  final trimmed = category.trim();
-  if (trimmed.isEmpty) return trimmed;
-  return trimmed
-      .split(RegExp(r'\s+'))
-      .map((word) {
-        if (word == '&') return word;
-        if (word.length <= 2) return word.toUpperCase();
-        return word[0].toUpperCase() + word.substring(1).toLowerCase();
-      })
-      .join(' ');
+  final normalized = _categoryKey(category);
+  if (normalized.isEmpty) return normalized;
+  return normalized[0].toUpperCase() + normalized.substring(1);
 }
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -147,7 +139,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _mapCenteredOnLocation = false;
   bool _initialRouteHandled = false;
   bool _showNavigationSteps = false;
+  bool _loadingMoreEvents = false;
+  bool? _hasMoreEvents;
   double _currentZoom = _initialMapZoom;
+  List<EventListItem> _additionalEvents = const [];
   List<LatLng> _routePoints = const [];
   _ActiveRoute? _activeRoute;
   String? _routeEventId;
@@ -194,6 +189,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (!mounted) return;
       setState(() {
         _showAllEvents = true;
+        _activeFilter = _allCategoryFilter;
+        _additionalEvents = const [];
+        _hasMoreEvents = null;
         _selectedEventId = target!.event.id;
       });
       _showRouteToEvent(target!, mapCenter);
@@ -207,12 +205,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.dispose();
   }
 
-  List<EventListItem> _upcomingEvents(List<EventListItem> items) {
-    return items.where((item) => !item.event.isPast).toList();
+  EventFeedScope get _eventFeedScope =>
+      _showAllEvents ? EventFeedScope.all : EventFeedScope.nearby;
+
+  List<EventListItem> _activeEvents(List<EventListItem> items) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfDayAfterTomorrow = DateTime(
+      startOfToday.year,
+      startOfToday.month,
+      startOfToday.day + 2,
+    );
+    return items.where((item) {
+      final startsAt = item.event.startsAt.toLocal();
+      return !item.event.isPast &&
+          !startsAt.isBefore(startOfToday) &&
+          startsAt.isBefore(startOfDayAfterTomorrow);
+    }).toList();
   }
 
   List<EventListItem> _applyFilter(List<EventListItem> items) {
-    final upcomingItems = _upcomingEvents(items);
+    final upcomingItems = _activeEvents(items);
     final categoryFilteredItems = _activeFilter == _allCategoryFilter
         ? upcomingItems
         : upcomingItems
@@ -226,6 +239,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return categoryFilteredItems
         .where((item) => item.venue.isAccessible)
         .toList();
+  }
+
+  Future<void> _loadMoreEvents() async {
+    if (_loadingMoreEvents) return;
+    final firstPage = ref.read(
+      eventFeedPageProvider((scope: _eventFeedScope, offset: 0)),
+    );
+    final initialItems = firstPage.valueOrNull?.items;
+    if (initialItems == null) return;
+
+    setState(() => _loadingMoreEvents = true);
+    try {
+      final page = await ref.read(
+        eventFeedPageProvider((
+          scope: _eventFeedScope,
+          offset: initialItems.length + _additionalEvents.length,
+        )).future,
+      );
+      if (!mounted) return;
+      setState(() {
+        _additionalEvents = [..._additionalEvents, ...page.items];
+        _hasMoreEvents = page.hasMore;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingMoreEvents = false);
+    }
   }
 
   List<EventListItem> _eventsWithinRadius(
@@ -469,7 +508,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final locationState = ref.watch(locationProvider);
-    final eventsAsync = ref.watch(nearbyEventsProvider);
+    final firstPageAsync = ref.watch(
+      eventFeedPageProvider((scope: _eventFeedScope, offset: 0)),
+    );
+    final eventsAsync = firstPageAsync.whenData(
+      (page) => [...page.items, ..._additionalEvents],
+    );
+    final hasMoreEvents =
+        _hasMoreEvents ?? firstPageAsync.valueOrNull?.hasMore ?? false;
     final busynessAsync = ref.watch(busynessAreasProvider);
     final mapCenter = locationState.position ?? const LatLng(40.7580, -73.9855);
     final categoryFilters = _categoryFiltersFor(
@@ -486,7 +532,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     eventsAsync.whenData((items) {
-      final upcoming = _upcomingEvents(items);
+      final upcoming = _activeEvents(items);
       _centerOnEventsIfNeeded(upcoming);
       _handleInitialRouteIfNeeded(upcoming, mapCenter);
     });
@@ -639,12 +685,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   categoryFilters: categoryFilters,
                   onFilterChanged: (f) => setState(() => _activeFilter = f),
                   showAllEvents: _showAllEvents,
-                  onScopeChanged: (showAll) =>
-                      setState(() => _showAllEvents = showAll),
+                  onScopeChanged: (showAll) {
+                    if (_showAllEvents == showAll) return;
+                    setState(() {
+                      _showAllEvents = showAll;
+                      _activeFilter = _allCategoryFilter;
+                      _additionalEvents = const [];
+                      _hasMoreEvents = null;
+                    });
+                  },
                   accessibleOnly: _accessibleOnly,
                   onAccessibleChanged: (value) =>
                       setState(() => _accessibleOnly = value),
                   eventsAsync: eventsAsync,
+                  hasMoreEvents: hasMoreEvents,
+                  loadingMoreEvents: _loadingMoreEvents,
+                  onLoadMoreEvents: _loadMoreEvents,
                   location: locationState.position,
                   selectedEventId: _selectedEventId,
                   sheetController: _sheetController,
@@ -691,25 +747,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final scopedItems = _showAllEvents
         ? categoryFilteredItems
         : _eventsWithinRadius(categoryFilteredItems, center, _searchRadiusKm);
-    final filteredItems = scopedItems.isEmpty
-        ? categoryFilteredItems
-        : scopedItems;
     final filteredAreas = _showAllEvents
         ? areas
         : _areasWithinRadius(areas, center, _searchRadiusKm);
     return _MapScopeData(
-      visibleItems: filteredItems,
+      visibleItems: scopedItems,
       visibleAreas: filteredAreas,
     );
   }
 
   List<String> _categoryFiltersFor(List<EventListItem> items) {
     final labelsByKey = <String, String>{};
-    for (final item in _upcomingEvents(items)) {
+    for (final item in _activeEvents(items)) {
       final rawCategory = _categoryForItem(item);
       final key = _categoryKey(rawCategory);
       if (key.isEmpty) continue;
-      if (key == 'undefined' || key == 'null' || key == 'unknown') continue;
       labelsByKey.putIfAbsent(key, () => _categoryLabel(rawCategory!));
     }
 
@@ -1251,6 +1303,9 @@ class _BottomPanel extends StatelessWidget {
   final bool accessibleOnly;
   final ValueChanged<bool> onAccessibleChanged;
   final AsyncValue<List<EventListItem>> eventsAsync;
+  final bool hasMoreEvents;
+  final bool loadingMoreEvents;
+  final Future<void> Function() onLoadMoreEvents;
   final LatLng? location;
   final String? selectedEventId;
   final DraggableScrollableController sheetController;
@@ -1275,6 +1330,9 @@ class _BottomPanel extends StatelessWidget {
     required this.accessibleOnly,
     required this.onAccessibleChanged,
     required this.eventsAsync,
+    required this.hasMoreEvents,
+    required this.loadingMoreEvents,
+    required this.onLoadMoreEvents,
     required this.location,
     required this.selectedEventId,
     required this.sheetController,
@@ -1345,27 +1403,30 @@ class _BottomPanel extends StatelessWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Row(
-                      children: [
-                        _ScopeChip(
-                          label: 'Nearby',
-                          isActive: !showAllEvents,
-                          onTap: () => onScopeChanged(false),
-                        ),
-                        const SizedBox(width: 8),
-                        _ScopeChip(
-                          label: 'All events',
-                          isActive: showAllEvents,
-                          onTap: () => onScopeChanged(true),
-                        ),
-                        const SizedBox(width: 8),
-                        _ScopeChip(
-                          label: 'Accessible',
-                          icon: Icons.accessible_forward,
-                          isActive: accessibleOnly,
-                          onTap: () => onAccessibleChanged(!accessibleOnly),
-                        ),
-                      ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _ScopeChip(
+                            label: 'Nearby',
+                            isActive: !showAllEvents,
+                            onTap: () => onScopeChanged(false),
+                          ),
+                          const SizedBox(width: 8),
+                          _ScopeChip(
+                            label: 'All events',
+                            isActive: showAllEvents,
+                            onTap: () => onScopeChanged(true),
+                          ),
+                          const SizedBox(width: 8),
+                          _ScopeChip(
+                            label: 'Accessible',
+                            icon: Icons.accessible_forward,
+                            isActive: accessibleOnly,
+                            onTap: () => onAccessibleChanged(!accessibleOnly),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -1426,7 +1487,7 @@ class _BottomPanel extends StatelessWidget {
                               location,
                               _searchRadiusKm,
                             ).isEmpty
-                          ? 'No events within ${_searchRadiusKm.toStringAsFixed(0)} km, showing all loaded events'
+                          ? 'No events within ${_searchRadiusKm.toStringAsFixed(0)} km of you'
                           : 'Showing events within ${_searchRadiusKm.toStringAsFixed(0)} km of you',
                       style: const TextStyle(
                         fontSize: 12,
@@ -1487,8 +1548,6 @@ class _BottomPanel extends StatelessWidget {
               );
               final filtered = showAllEvents
                   ? categoryFilteredItems
-                  : scopedItems.isEmpty
-                  ? categoryFilteredItems
                   : scopedItems;
               final visibleAreas = showAllEvents
                   ? busynessAreas
@@ -1497,30 +1556,45 @@ class _BottomPanel extends StatelessWidget {
                       location,
                       _searchRadiusKm,
                     );
+              final showLoadMore =
+                  hasMoreEvents &&
+                  activeFilter == _allCategoryFilter &&
+                  !accessibleOnly;
               if (filtered.isEmpty) {
-                return const SliverFillRemaining(
+                return SliverFillRemaining(
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
+                      children: <Widget>[
+                        const Icon(
                           Icons.search_off,
                           size: 48,
                           color: FromoColors.gray200,
                         ),
-                        SizedBox(height: 12),
-                        Text(
+                        const SizedBox(height: 12),
+                        const Text(
                           'No events nearby',
                           style: TextStyle(color: FromoColors.gray500),
                         ),
-                        SizedBox(height: 4),
-                        Text(
+                        const SizedBox(height: 4),
+                        const Text(
                           'Try adjusting your filters',
                           style: TextStyle(
                             color: FromoColors.gray500,
                             fontSize: 12,
                           ),
                         ),
+                        if (showLoadMore) ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: loadingMoreEvents
+                                ? null
+                                : onLoadMoreEvents,
+                            child: Text(
+                              loadingMoreEvents ? 'Loading…' : 'Load more',
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1529,20 +1603,34 @@ class _BottomPanel extends StatelessWidget {
               return SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 sliver: SliverList.separated(
-                  itemCount: filtered.length,
+                  itemCount: filtered.length + (showLoadMore ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) => _ActivityCard(
-                    item: filtered[i],
-                    isSelected: selectedEventId == filtered[i].event.id,
-                    routeActive: routeEventId == filtered[i].event.id,
-                    routeLoading: routeLoadingEventId == filtered[i].event.id,
-                    crowd: _crowdForEvent(filtered[i], visibleAreas),
-                    onTap: () {
-                      onEventTap(filtered[i]);
-                      context.push('/events/${filtered[i].event.id}');
-                    },
-                    onDirections: () => onDirections(filtered[i]),
-                  ),
+                  itemBuilder: (context, i) {
+                    if (i == filtered.length) {
+                      return Center(
+                        child: OutlinedButton(
+                          onPressed: loadingMoreEvents
+                              ? null
+                              : onLoadMoreEvents,
+                          child: Text(
+                            loadingMoreEvents ? 'Loading…' : 'Load more',
+                          ),
+                        ),
+                      );
+                    }
+                    return _ActivityCard(
+                      item: filtered[i],
+                      isSelected: selectedEventId == filtered[i].event.id,
+                      routeActive: routeEventId == filtered[i].event.id,
+                      routeLoading: routeLoadingEventId == filtered[i].event.id,
+                      crowd: _crowdForEvent(filtered[i], visibleAreas),
+                      onTap: () {
+                        onEventTap(filtered[i]);
+                        context.push('/events/${filtered[i].event.id}');
+                      },
+                      onDirections: () => onDirections(filtered[i]),
+                    );
+                  },
                 ),
               );
             },
@@ -2145,12 +2233,14 @@ class _ActivityCard extends StatelessWidget {
 
                   const SizedBox(height: 6),
 
-                  // Price row + badges
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  // Price and badges can wrap without squeezing the action.
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
                       // Strikethrough original price
-                      if (event.isLastMinuteDeal) ...[
+                      if (event.isLastMinuteDeal)
                         Text(
                           event.originalPriceDisplay!,
                           style: const TextStyle(
@@ -2159,8 +2249,6 @@ class _ActivityCard extends StatelessWidget {
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                      ],
 
                       // Current price
                       Text(
@@ -2173,8 +2261,6 @@ class _ActivityCard extends StatelessWidget {
                               : FromoColors.green600,
                         ),
                       ),
-
-                      const SizedBox(width: 6),
 
                       // Last-minute deal badge
                       if (event.isLastMinuteDeal)
@@ -2217,30 +2303,36 @@ class _ActivityCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                    ],
+                  ),
 
-                      const Spacer(),
+                  const SizedBox(height: 8),
 
-                      // Get Directions button
-                      GestureDetector(
+                  // A dedicated full-width row keeps Directions readable on
+                  // narrow screens and with larger accessibility text.
+                  Semantics(
+                    button: true,
+                    label: routeActive ? 'View route' : 'Get directions',
+                    child: Material(
+                      color: routeActive
+                          ? FromoColors.teal
+                          : FromoColors.teal.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
                         onTap: routeLoading ? null : onDirections,
-                        child: Container(
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: routeActive
-                                ? FromoColors.teal
-                                : FromoColors.teal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            horizontal: 10,
+                            vertical: 7,
                           ),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               if (routeLoading)
                                 SizedBox(
-                                  width: 13,
-                                  height: 13,
+                                  width: 14,
+                                  height: 14,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: routeActive
@@ -2251,27 +2343,31 @@ class _ActivityCard extends StatelessWidget {
                               else
                                 Icon(
                                   Icons.alt_route,
-                                  size: 13,
+                                  size: 14,
                                   color: routeActive
                                       ? FromoColors.amberInk
                                       : FromoColors.teal,
                                 ),
-                              const SizedBox(width: 3),
-                              Text(
-                                routeActive ? 'Route' : 'Directions',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: routeActive
-                                      ? FromoColors.amberInk
-                                      : FromoColors.teal,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  routeActive ? 'Route' : 'Directions',
+                                  maxLines: 1,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: routeActive
+                                        ? FromoColors.amberInk
+                                        : FromoColors.teal,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
