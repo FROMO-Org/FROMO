@@ -15,6 +15,7 @@ on:
     branches: ["main"]
     paths:
       - "data/events/**"
+      - ".github/workflows/ci-events.yml"
 
 jobs:
   test:

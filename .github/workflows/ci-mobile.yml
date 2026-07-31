@@ -1,28 +1,4 @@
 # Enforces pubspec.lock sync, installs Flutter dependencies, lints with flutter analyze, and runs Flutter tests.
-#Type1: Unit Tests (pure functions)
-
-# Does formatPrice(0) return "Free"?
-# Does formatPrice(500) return "$5"?
-# Does formatTime("bad-input") return null?
-
-#Type2: Component Tests
-# If I pass event.price_cents = 0, does "Free" appear on screen?
-# If I pass venue.is_accessible = true, does "Step-free entrance" appear?
-
-#Testing Library
-#Vitest + React Testing Library
-
-#What would the CI look like after adding tests?
-
-#- name: Install dependencies
-#  run: npm ci
-
-#- name: Run tests        # NEW
-#  run: npm test          # runs vitest
-
-#- name: Build app
-#  run: npm run build
-
 
 name: Mobile CI
 
@@ -33,7 +9,10 @@ on:
       - "mobile/**"                            # Trigger when mobile code changes
       - ".github/workflows/ci-mobile.yml"      # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main"]     # Always run on PRs targeting main
+    branches: ["main"]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ci-mobile.yml"
 
 jobs:
   test:

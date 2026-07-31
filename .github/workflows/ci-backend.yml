@@ -9,7 +9,10 @@ on:
       - "backend/**"                           # Trigger when backend code changes
       - ".github/workflows/ci-backend.yml"     # Also trigger when this workflow file itself changes
   pull_request:
-    branches: ["main"]      # Always run on PRs targeting main, regardless of which files changed
+    branches: ["main"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
 
 jobs:
   test:
