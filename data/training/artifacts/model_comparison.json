@@ -1,0 +1,56 @@
+[
+  {
+    "model": "lightgbm",
+    "test_mae": 0.022037389667854117,
+    "r2_deviation": 0.380159489250143,
+    "bias": 0.01285204471753114,
+    "fit_seconds": 12.357895100023597,
+    "best_iteration": 1000.0,
+    "improvement_pct_vs_trust_norm": 19.602709789172525
+  },
+  {
+    "model": "random_forest",
+    "test_mae": 0.022500809362254785,
+    "r2_deviation": 0.3777392956828285,
+    "bias": 0.006292032419653208,
+    "fit_seconds": 439.2643057000241,
+    "best_iteration": NaN,
+    "improvement_pct_vs_trust_norm": 17.912051856373377
+  },
+  {
+    "model": "xgboost",
+    "test_mae": 0.022724638186341257,
+    "r2_deviation": 0.35896582320203996,
+    "bias": 0.01355855409722314,
+    "fit_seconds": 15.940499699965585,
+    "best_iteration": NaN,
+    "improvement_pct_vs_trust_norm": 17.095474612024066
+  },
+  {
+    "model": "ridge",
+    "test_mae": 0.025432506140574875,
+    "r2_deviation": 0.17563049029917455,
+    "bias": 0.002457263393925295,
+    "fit_seconds": 0.5930113999638706,
+    "best_iteration": NaN,
+    "improvement_pct_vs_trust_norm": 7.216571118899108
+  },
+  {
+    "model": "per_zone_mean_bias",
+    "test_mae": 0.026703723553439924,
+    "r2_deviation": -0.0868590260969535,
+    "bias": -0.01289753358121355,
+    "fit_seconds": 0.010297700006049126,
+    "best_iteration": NaN,
+    "improvement_pct_vs_trust_norm": 2.5788877633131655
+  },
+  {
+    "model": "trust_the_norm",
+    "test_mae": 0.027410612484655907,
+    "r2_deviation": -0.12860587003690482,
+    "bias": -0.014917404592592998,
+    "fit_seconds": 0.0,
+    "best_iteration": NaN,
+    "improvement_pct_vs_trust_norm": 0.0
+  }
+]

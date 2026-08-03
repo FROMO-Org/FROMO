@@ -1,0 +1,16 @@
+{
+  "total_feature_rows": 817344,
+  "n_fit": 691667,
+  "n_val": 76573,
+  "n_test": 49104,
+  "n_zones": 66,
+  "date_range": {
+    "start": "2025-01-01T00:00:00",
+    "end": "2026-05-31T23:59:59"
+  },
+  "per_mode_raw_totals": {
+    "subway": 1027926810.0,
+    "taxi": 191201934.0,
+    "bike": 37631103.0
+  }
+}

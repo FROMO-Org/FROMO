@@ -1,0 +1,10 @@
+{
+  "floor": 0.06877886802750599,
+  "ceiling": 0.21678455492730356,
+  "deadband": 0.02,
+  "labels": [
+    "not busy",
+    "as usual",
+    "busier"
+  ]
+}

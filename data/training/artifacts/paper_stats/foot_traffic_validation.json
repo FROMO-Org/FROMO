@@ -1,0 +1,31 @@
+{
+  "n_zones_covered": 22,
+  "n_comparisons": 132,
+  "overall_spearman": 0.46482966611532295,
+  "per_window": {
+    "may25_am": {
+      "n_zones": 22,
+      "spearman": 0.5324675324675326
+    },
+    "may25_pm": {
+      "n_zones": 22,
+      "spearman": 0.1360813099943535
+    },
+    "may25_md": {
+      "n_zones": 22,
+      "spearman": 0.07058159232072277
+    },
+    "oct25_am": {
+      "n_zones": 22,
+      "spearman": 0.531338226990401
+    },
+    "oct25_pm": {
+      "n_zones": 22,
+      "spearman": 0.24223602484472054
+    },
+    "oct25_md": {
+      "n_zones": 22,
+      "spearman": 0.1101072840203275
+    }
+  }
+}
