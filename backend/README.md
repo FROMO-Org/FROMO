@@ -1,15 +1,21 @@
 # FROMO Backend
 
-FastAPI backend for FROMO. It handles auth verification, organisation and venue management, event discovery, bookings, and saved events.
+FastAPI backend for FROMO — the single API that both the web and mobile clients run on. It handles
+Supabase JWT auth verification, organisation and venue management, event discovery, bookings,
+Stripe payments, AI-generated event summaries, busyness data, an organiser dashboard, and user
+feedback. It also serves the busyness predictions produced offline by the data/ML pipeline.
 
 ## Setup
 
 1. Install `uv`.
 2. Copy `.env.example` to `.env`.
-3. Fill in:
-   - `DATABASE_URL`
-   - `SUPABASE_URL`
-   - `SUPABASE_PUBLISHABLE_KEY`
+3. Fill in the environment variables:
+   - Core (required): `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+   - Payments: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `FRONTEND_URL`
+   - AI summaries: `GEMINI_API_KEY`
+
+   Feature env vars are optional — if a key is missing, that feature degrades gracefully (e.g. an
+   event is still created without an AI summary).
 4. Install dependencies:
 
 ```bash
@@ -30,11 +36,14 @@ http://127.0.0.1:8000/docs
 
 ## Stack
 
-- FastAPI
-- SQLAlchemy
+- FastAPI (typed REST API, auto-generated OpenAPI docs)
+- SQLAlchemy (ORM)
 - PostgreSQL via Supabase
-- Supabase Auth JWT verification
-- uv
+- Supabase Auth JWT verification (JWKS)
+- Stripe (hosted Checkout + webhook)
+- Gemini API (event summaries)
+- uv (package manager)
+- pytest + GitHub Actions CI
 
 ## Current API Flow
 
@@ -92,6 +101,22 @@ Saved events:
 - `POST /saved-events/`
 - `DELETE /saved-events/{event_id}`
 
+Payments (Stripe):
+- `POST /payments/` — start a Checkout session for an event
+- `GET /payments/{payment_id}` — payment status
+- `POST /payments/webhook` — Stripe webhook (confirms the booking on `checkout.session.completed`)
+
+Busyness:
+- `GET /busyness/areas` — list static busyness zones
+- `GET /busyness/areas/{area_id}/scores` — scores for a zone
+- `GET /busyness/nearby` — zones and scores near a coordinate
+
+Dashboard:
+- `GET /organisations/{organisation_id}/dashboard` — organiser analytics (listings, bookings, revenue)
+
+Feedback:
+- `POST /feedback/`
+
 ## Notes For Frontend/Data ML
 
 - Authenticated endpoints require a Supabase JWT in the `Authorization: Bearer <token>` header.
@@ -107,6 +132,33 @@ Saved events:
 ```bash
 .venv/bin/python -m compileall app main.py
 .venv/bin/python -B -c "from main import app; print(len(app.routes))"
+```
+
+## Testing
+
+The suite (~99 tests, ~60% statement coverage across `app/`) covers schema/validation, API
+behaviour, OpenAPI contract registration, dashboard logic, and the Stripe webhook flow (including
+idempotency). Tests use mocked authentication and, in CI, run against a real PostgreSQL container.
+
+```bash
+uv run pytest                                  # run the suite
+uv run --with pytest-cov pytest --cov=app      # with coverage
+uv run ruff check .                            # lint
+```
+
+## Continuous Integration
+
+`.github/workflows/ci-backend.yml` runs on every push/PR touching `backend/`. It checks the `uv`
+lockfile is in sync, runs `ruff`, spins up a PostgreSQL 17 service container, and runs `pytest` —
+so regressions are caught before they merge.
+
+## Performance
+
+A dependency-free load-test harness reports p50/p95/p99 latency per endpoint:
+
+```bash
+python3 perf/load_test.py <BASE_URL> --requests 40 --concurrency 1     # per-request cost
+python3 perf/load_test.py <BASE_URL> --requests 150 --concurrency 20   # under load
 ```
 
 ## Supabase Workflow
@@ -228,6 +280,9 @@ Backend environment variables to set in Render:
 - `DATABASE_URL`
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
+- `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `FRONTEND_URL` (used for Stripe redirect URLs — set to the deployed frontend origin)
+- `GEMINI_API_KEY`
 
 ### Frontend site
 
