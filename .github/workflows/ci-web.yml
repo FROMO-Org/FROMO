@@ -1,4 +1,4 @@
-# Installs dependencies with npm ci and builds the Vite app.
+# Installs dependencies with npm ci, runs the Vitest suite, and builds the Vite app.
 
 name: Web CI
 
@@ -34,10 +34,9 @@ jobs:
         # fails automatically if package-lock.json is out of sync with package.json
         run: npm ci
 
-      # TODO: Re-enable once the Vitest suite is updated for the current UI.
-      # - name: Run tests
-      #   working-directory: web
-      #   run: npm test
+      - name: Run tests
+        working-directory: web
+        run: npm test
 
       # - name: Lint with ESLint
       #   working-directory: web

@@ -39,10 +39,9 @@ describe("Header — logged out", () => {
     expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
   });
 
-  it("has Discover nav link pointing to /", () => {
+  it("has the FROMO brand link pointing to /", () => {
     renderHeader();
-    const discoverLink = screen.getByRole("link", { name: /discover/i });
-    expect(discoverLink).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /fromo/i })).toHaveAttribute("href", "/");
   });
 });
 

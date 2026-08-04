@@ -39,12 +39,6 @@ describe("Login page", () => {
     expect(screen.getByPlaceholderText(/password/i)).toBeInTheDocument();
   });
 
-  it("renders Student and Partner role tabs", () => {
-    renderLogin();
-    expect(screen.getByRole("button", { name: /student/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /partner/i })).toBeInTheDocument();
-  });
-
   it("renders Sign In button", () => {
     renderLogin();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
@@ -84,11 +78,10 @@ describe("Login page", () => {
     });
   });
 
-  it("navigates to /partner after successful partner login", async () => {
-    mockSignIn.mockResolvedValue({});
+  it("navigates to /partner when the signed-in account is an organiser", async () => {
+    mockSignIn.mockResolvedValue({ profile: { user_type: "organiser" } });
     renderLogin();
 
-    fireEvent.click(screen.getByRole("button", { name: /partner/i }));
     await userEvent.type(screen.getByPlaceholderText(/email/i), "org@test.com");
     await userEvent.type(screen.getByPlaceholderText(/password/i), "pass123");
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
