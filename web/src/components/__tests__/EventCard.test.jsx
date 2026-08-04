@@ -1,7 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import EventCard from "../EventCard.jsx";
+
+vi.mock("../../context/AuthContext.jsx", () => ({
+  useAuth: vi.fn(),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+import { useAuth } from "../../context/AuthContext.jsx";
 
 const baseEvent = {
   id: "evt-1",
@@ -33,6 +45,11 @@ function renderCard(props = {}) {
 }
 
 describe("EventCard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuth.mockReturnValue({ user: { id: "user-1" } });
+  });
+
   it("renders the event title", () => {
     renderCard();
     expect(screen.getByText("Jazz Night")).toBeInTheDocument();
@@ -71,11 +88,17 @@ describe("EventCard", () => {
     expect(screen.getByText(/Steps at entrance/i)).toBeInTheDocument();
   });
 
-  it("calls onSelect when card is clicked", () => {
-    const onSelect = vi.fn();
-    renderCard({ onSelect });
+  it("navigates to the event detail page when card is clicked", () => {
+    renderCard();
     fireEvent.click(screen.getByRole("article"));
-    expect(onSelect).toHaveBeenCalledWith("evt-1");
+    expect(mockNavigate).toHaveBeenCalledWith("/events/evt-1", { state: { event: baseEvent } });
+  });
+
+  it("navigates to /login when a signed-out user clicks the card", () => {
+    useAuth.mockReturnValue({ user: null });
+    renderCard();
+    fireEvent.click(screen.getByRole("article"));
+    expect(mockNavigate).toHaveBeenCalledWith("/login");
   });
 
   it("calls onDirections when Directions button is clicked", () => {
@@ -85,12 +108,11 @@ describe("EventCard", () => {
     expect(onDirections).toHaveBeenCalledWith(baseEvent);
   });
 
-  it("does not propagate card click when Directions button is clicked", () => {
-    const onSelect = vi.fn();
+  it("does not navigate when Directions button is clicked", () => {
     const onDirections = vi.fn();
-    renderCard({ onSelect, onDirections });
+    renderCard({ onDirections });
     fireEvent.click(screen.getByRole("button", { name: /directions/i }));
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("applies active border styles when active is true", () => {
