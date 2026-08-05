@@ -1,6 +1,13 @@
 # FROMO
 FROMO (Free from FOMO) — A real-time, location-based last-minute event radar for students. Built on NYC NTA spatial demand models to combat youth social isolation.
 
+## Links
+
+- **Web app (live):** https://fromo-website.onrender.com/
+- **Mobile app (live):** https://fromomobile.netlify.app/#/map
+- **Project board (Linear):** https://linear.app/research-semester-group-9/team/RES/overview
+- **Google Drive:** all related documents for each week and sprint — https://drive.google.com/drive/u/0/folders/1QGeYSQVy4dyRFpbVilOwfxC7y5JIhBQO
+
 ---
 
 ## Project Structure
@@ -61,6 +68,43 @@ uv run uvicorn main:app --reload --port 8000
 ```
 
 The API will be available at `http://localhost:8000`. You can explore all endpoints at `http://localhost:8000/docs`.
+
+---
+
+## Web Setup
+
+**1. Go to the web folder:**
+```bash
+cd web
+```
+
+**2. Install dependencies:**
+```bash
+npm install
+```
+
+**3. Create your `.env` file:**
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and fill in the values (ask a teammate for the Supabase credentials):
+```
+VITE_SUPABASE_URL=https://seqpmxiutifcrbitmajh.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key>
+VITE_API_BASE_URL=/api
+```
+
+`VITE_API_BASE_URL` should stay as `/api` — the Vite dev server proxies it to the backend on port 8000, which avoids CORS errors. `VITE_ORS_API_KEY` is optional and only enables in-app walking directions; without it, "Directions" opens Google Maps instead.
+
+**4. Start the dev server:**
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`.
+
+> Note: The backend must be running before you start the web app, otherwise events won't load.
 
 ---
 
