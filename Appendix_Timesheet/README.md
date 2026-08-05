@@ -6,12 +6,13 @@ Supporting project material for evaluation, organised by category rather than du
 
 ```text
 Appendix_Timesheet/
-├── mockups/        # MVP mockups / design material
+├── timesheet/             # Team timesheet(s)
+├── mockups/               # MVP mockups / design material
 ├── architecture/
-│   ├── backend/    # Backend architecture docs/diagrams
-│   └── frontend/   # Frontend (web + mobile) architecture docs/diagrams
-├── timesheet/       # Team timesheet(s)
-└── other/           # Anything that doesn't fit the above
+│   ├── backend/           # Backend architecture docs/diagrams
+│   └── frontend/          # Frontend (web + mobile) architecture docs/diagrams
+├── User Interviews Q&A/   # Anonymised interview transcripts/Q&A
+└── other/                 # Anything that doesn't fit the above
 ```
 
 Drop files into the matching subfolder. If a category needs its own further breakdown (e.g. `mockups/` by screen or `architecture/frontend/` by web vs mobile), add subfolders rather than mixing file types together.
