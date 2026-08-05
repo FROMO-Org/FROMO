@@ -2,6 +2,10 @@ import { useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { formatPrice } from "../../lib/format";
 
+function formatRevenue(cents) {
+  return `$${((cents ?? 0) / 100).toFixed(2).replace(/\.00$/, "")}`;
+}
+
 export default function Analytics() {
   const { orgData } = useOutletContext();
   const summary = orgData?.dashboard?.summary ?? {};
@@ -104,7 +108,7 @@ export default function Analytics() {
                     </div>
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#F5A623" }}>
-                    {formatPrice(l.revenue_cents) ?? "—"}
+                    {formatRevenue(l.revenue_cents)}
                   </div>
                 </div>
               ))}
@@ -157,7 +161,7 @@ export default function Analytics() {
                     {l.bookings_count ?? 0}
                   </td>
                   <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "var(--color-ink)" }}>
-                    {formatPrice(l.revenue_cents) ?? "—"}
+                    {formatRevenue(l.revenue_cents)}
                   </td>
                   <td style={{ padding: "14px 12px 14px 0", fontSize: 14, color: "var(--color-ink)" }}>
                     {l.sold ?? 0}/{l.capacity ?? "?"}
