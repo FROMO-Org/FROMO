@@ -1,12 +1,73 @@
 # FROMO
-FROMO (Free from FOMO) — A real-time, location-based last-minute event radar for students. Built on NYC NTA spatial demand models to combat youth social isolation.
+FROMO (Free from FOMO) is a real-time, location-based event discovery platform designed to help students find meaningful things to do nearby, especially last-minute and low-friction social activities. Instead of relying on endless scrolling or fragmented event listings, FROMO brings nearby events, venue context, booking tools, and local busyness signals into one map-first experience.
+
+The project responds to a common student problem: people often want to go out, meet others, or try something spontaneous, but they miss opportunities because information is scattered, outdated, or not location-aware. FROMO reduces that friction by showing what is happening around the user right now, supporting quick decisions through distance, category, price, time, availability, directions, and reservation status.
+
+FROMO also supports event organisers and venues. Partners can create and manage event listings, monitor bookings and revenue, and use analytics to understand engagement. The backend is built around Supabase, FastAPI, and PostgreSQL, with room for data-driven demand and busyness modelling using NYC neighbourhood-level spatial data.
+
+---
+
+## Features
+
+### Student Experience
+
+- Map-based discovery of live and upcoming events
+- Nearby mode using the user's location and a radius-based event feed
+- All-events mode for browsing the wider Manhattan event dataset
+- Event cards with title, category, time, distance, price, venue, and availability
+- Category filtering for faster discovery
+- Event detail pages with images, descriptions, venue information, dates, times, prices, remaining spots, and directions
+- Save and unsave events for later
+- Book free events directly through the app
+- View upcoming, past, and cancelled bookings
+- Cancel confirmed bookings before the event
+- Direction support through route fetching with Google Maps fallback
+- Busyness overlay showing whether nearby areas are not busy, as usual, or busier
+- Authentication-aware flows for login, signup, saved events, and bookings
+- Student profile and settings screens
+
+### Partner / Organiser Experience
+
+- Partner dashboard for event organisers
+- Create and manage event listings
+- Manage venues and organisation-owned events
+- View listing status, capacity, spots remaining, bookings, and revenue
+- Analytics page for organiser performance metrics
+- Partner settings page for account and organisation management
+- Shared booking view for tracking event reservations
+
+### Backend & Platform Features
+
+- FastAPI REST API for profiles, events, venues, organisations, bookings, saved events, payments, feedback, busyness, and dashboard data
+- Supabase Auth JWT verification for protected endpoints
+- PostgreSQL database hosted through Supabase
+- SQLAlchemy models and schema validation with Pydantic
+- Event discovery API with optional latitude/longitude distance calculation
+- Booking lifecycle support, including confirmed and cancelled states
+- Saved-event endpoints for authenticated users
+- Organisation and membership management for partner users
+- Stripe checkout integration for paid events
+- Stripe webhook handling for payment completion, expiry, and failure
+- Feedback endpoint for collecting user input
+- Busyness API designed for local demand signals and spatial analytics
+- Database migrations tracked in `backend/supabase/migrations`
+- Automated backend tests for health checks, event contracts, schemas, organisations, venues, bookings, and payments
+
+### Mobile, Web, and Data
+
+- Flutter mobile app targeting iOS, Android, and web
+- React + Vite web frontend for student and partner workflows
+- Leaflet-based interactive maps on the web frontend
+- Shared API patterns between mobile and web clients
+- Data processing scripts for normalised spatial feature tables
+- Test fixtures for the data pipeline
 
 ## Links
 
 - **Web app (live):** https://fromo-website.onrender.com/
 - **Mobile app (live):** https://fromomobile.netlify.app/#/map
 - **Project board (Linear):** https://linear.app/research-semester-group-9/team/RES/overview
-- **Google Drive:** all related documents for each week and sprint — https://drive.google.com/drive/u/0/folders/1QGeYSQVy4dyRFpbVilOwfxC7y5JIhBQO
+- **Google Drive as supporting documentation:** all related documents for each week and sprint — https://drive.google.com/drive/u/0/folders/1QGeYSQVy4dyRFpbVilOwfxC7y5JIhBQO
 
 ---
 
